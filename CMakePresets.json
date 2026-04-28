@@ -1,0 +1,47 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "windows-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "description": "Build the MSFS Turnaround bridge using MSVC in Debug mode.",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/windows-msvc-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "windows-msvc-release",
+      "displayName": "Windows MSVC Release",
+      "description": "Build the MSFS Turnaround bridge using MSVC in Release mode.",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/windows-msvc-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "bridge-debug",
+      "displayName": "Bridge Debug",
+      "configurePreset": "windows-msvc-debug",
+      "configuration": "Debug",
+      "targets": [
+        "msfs_turnaround_bridge"
+      ]
+    },
+    {
+      "name": "bridge-release",
+      "displayName": "Bridge Release",
+      "configurePreset": "windows-msvc-release",
+      "configuration": "Release",
+      "targets": [
+        "msfs_turnaround_bridge"
+      ]
+    }
+  ]
+}
