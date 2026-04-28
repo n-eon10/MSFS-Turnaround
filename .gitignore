@@ -1,0 +1,49 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Node / React / Tauri
+node_modules/
+dist/
+build/
+.vite/
+.env
+.env.local
+
+# Rust / Tauri
+target/
+Cargo.lock
+
+# C++ / CMake
+out/
+cmake-build-*/
+build-*/
+CMakeFiles/
+CMakeCache.txt
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.user
+
+# Binaries
+*.exe
+*.dll
+*.lib
+*.pdb
+*.obj
+*.ilk
+
+# Logs
+*.log
+
+# MSFS local SDK paths / generated files
+local.env
+sdk-paths.txt
+
+# Navdata / user files
+data/
