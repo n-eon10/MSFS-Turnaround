@@ -24,7 +24,12 @@ std::string telemetryToJson(const msfs_turnaround::AircraftTelemetry& telemetry)
             {"headingDeg", telemetry.headingDeg},
             {"gearHandlePosition", telemetry.gearHandlePosition},
             {"flapsHandleIndex", telemetry.flapsHandleIndex},
-            {"simOnGround", telemetry.simOnGround}
+            {"simOnGround", telemetry.simOnGround},
+            {"groundSpeedKt", telemetry.groundSpeedKt},
+            {"altitudeAboveGroundFt", telemetry.altitudeAboveGroundFt},
+            {"pitchDeg", telemetry.pitchDeg},
+            {"bankDeg", telemetry.bankDeg},
+            {"gForce", telemetry.gForce}
         }}
     };
 
@@ -40,6 +45,9 @@ std::string landingAnalysisToJson(const msfs_turnaround::LandingAnalysis& analys
             {"touchdownHeadingDeg", analysis.touchdownHeadingDeg},
             {"touchdownLatitudeDeg", analysis.touchdownLatitudeDeg},
             {"touchdownLongitudeDeg", analysis.touchdownLongitudeDeg},
+            {"touchdownPitchDeg", analysis.touchdownPitchDeg},
+            {"touchdownBankDeg", analysis.touchdownBankDeg},
+            {"touchdownGForce", analysis.touchdownGForce},
             {"score", analysis.score}
         }}
     };

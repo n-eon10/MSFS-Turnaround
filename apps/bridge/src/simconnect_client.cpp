@@ -89,6 +89,41 @@ void SimConnectClient::requestAircraftTelemetry() {
         "bool"
     );
 
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "GROUND VELOCITY",
+        "knots"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "PLANE ALT ABOVE GROUND",
+        "feet"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "PLANE PITCH DEGREES",
+        "degrees"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "PLANE BANK DEGREES",
+        "degrees"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "G FORCE",
+        "GForce"
+    );
+
     SimConnect_RequestDataOnSimObject(
         simConnect_,
         static_cast<DWORD>(DataRequestId::AircraftTelemetry),
@@ -161,6 +196,11 @@ void SimConnectClient::handleAircraftTelemetry(const SIMCONNECT_RECV_SIMOBJECT_D
         << " GEAR=" << telemetry->gearHandlePosition
         << " FLAPS=" << telemetry->flapsHandleIndex
         << " ON_GROUND=" << telemetry->simOnGround
+        << " GS_KT=" << telemetry->groundSpeedKt
+        << " AGL_FT=" << telemetry->altitudeAboveGroundFt
+        << " PITCH_DEG=" << telemetry->pitchDeg
+        << " BANK_DEG=" << telemetry->bankDeg
+        << " G=" << telemetry->gForce
         << std::endl;
 }
 

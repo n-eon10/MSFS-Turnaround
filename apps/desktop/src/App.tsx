@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 
 import { useSim, type Phase } from "./sim/useSim";
-import { padHdg } from "./sim/format";
+import { fmt, padHdg } from "./sim/format";
 import { Dashboard } from "./screens/Dashboard";
 import { ApproachSetup } from "./screens/ApproachSetup";
 import { LiveMonitor } from "./screens/LiveMonitor";
@@ -12,29 +12,44 @@ export type AppPage = "dashboard" | "setup" | "monitor" | "analysis";
 
 const NAV: Array<{ id: AppPage; label: string; num: string }> = [
   { id: "dashboard", label: "Dashboard", num: "01" },
-  { id: "setup", label: "Approach Setup", num: "02" },
+  { id: "setup", label: "Setup TODO", num: "02" },
   { id: "monitor", label: "Live Monitor", num: "03" },
   { id: "analysis", label: "Landing Analysis", num: "04" },
 ];
 
 const PHASE_LABEL: Record<Phase, string> = {
-  preflight: "PREFLIGHT",
-  approach: "APPROACH",
-  landing: "LANDING",
+  preflight: "GROUND / WAITING",
+  approach: "AIRBORNE",
+  landing: "LOW ALTITUDE",
   landed: "LANDED",
 };
 
 const PAGE_TITLES: Record<AppPage, { h: string; crumb: string }> = {
-  dashboard: { h: "Flight Dashboard", crumb: "HOME / OVERVIEW" },
-  setup: { h: "Approach Setup", crumb: "PROCEDURE / KSFO 28R" },
-  monitor: { h: "Live Approach Monitor", crumb: "TELEMETRY / 20 HZ" },
-  analysis: { h: "Landing Analysis", crumb: "DEBRIEF" },
+  dashboard: { h: "Flight Dashboard", crumb: "BRIDGE / LIVE DATA" },
+  setup: { h: "Setup TODO", crumb: "TODO / NAVDATA + FLIGHT PLAN" },
+  monitor: { h: "Live Telemetry Monitor", crumb: "SIMCONNECT / WEBSOCKET" },
+  analysis: { h: "Landing Analysis", crumb: "BRIDGE / TOUCHDOWN EVENT" },
 };
 
 function utcNow(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(
+    d.getUTCSeconds()
+  )}Z`;
+}
+
+function bridgeStatusLabel(status: string): string {
+  switch (status) {
+    case "connected":
+      return "CONNECTED";
+    case "connecting":
+      return "CONNECTING";
+    case "error":
+      return "ERROR";
+    default:
+      return "DISCONNECTED";
+  }
 }
 
 function App() {
@@ -42,13 +57,7 @@ function App() {
   const [scale, setScale] = useState(1);
   const [clock, setClock] = useState(utcNow());
 
-  const sim = useSim({
-    aircraft: "A320",
-    approach: "ILS",
-    stability: "stable",
-    initialPhase: page === "analysis" ? "landed" : "approach",
-    running: true,
-  });
+  const sim = useSim();
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", "slate");
@@ -62,8 +71,8 @@ function App() {
 
   useEffect(() => {
     const fit = () => {
-      const w = window.innerWidth,
-        h = window.innerHeight;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
       const sx = (w - 32) / 1440;
       const sy = (h - 32) / 900;
       setScale(Math.min(1, Math.min(sx, sy)));
@@ -74,14 +83,26 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (sim.state.phase === "landed" && page === "monitor") {
+    if (sim.state.phase === "landed" && sim.state.report && page === "monitor") {
       const id = setTimeout(() => setPage("analysis"), 600);
       return () => clearTimeout(id);
     }
-  }, [sim.state.phase, page]);
+  }, [sim.state.phase, sim.state.report, page]);
 
   const s = sim.state;
   const pt = PAGE_TITLES[page];
+  const bridgeStatus = bridgeStatusLabel(s.bridgeStatus);
+  const bridgeColor =
+    s.bridgeStatus === "connected"
+      ? "var(--good)"
+      : s.bridgeStatus === "error"
+        ? "var(--bad)"
+        : "var(--warn)";
+  const aircraftTitle = s.aircraft.code ?? "AIRCRAFT TODO";
+  const routeTitle =
+    s.runway.airport && s.runway.runway
+      ? `${s.runway.airport}/${s.runway.runway}`
+      : "FLIGHT PLAN TODO";
 
   const renderScreen = () => {
     switch (page) {
@@ -107,16 +128,10 @@ function App() {
               <span></span>
             </div>
             <span className="title-text">
-              MSFS Turnaround — {s.aircraft.code} · {s.runway.airport}/
-              {s.runway.runway}
+              MSFS Turnaround - {aircraftTitle} - {routeTitle}
             </span>
             <div className="title-meta">
-              <span>
-                <span className="live-dot" style={{ color: "var(--good)" }}>
-                  ●
-                </span>{" "}
-                SIMCONNECT
-              </span>
+              <span style={{ color: bridgeColor }}>{bridgeStatus}</span>
               <span>{clock}</span>
             </div>
           </div>
@@ -124,8 +139,8 @@ function App() {
           <div className="app">
             <div className="sidebar">
               <div className="sidebar-brand">
-                <div className="name">MSFS·TURNAROUND</div>
-                <div className="ver">v0.4.0-beta · open source</div>
+                <div className="name">MSFS TURNAROUND</div>
+                <div className="ver">v0.4.0-beta - open source</div>
               </div>
               <div className="nav">
                 <div className="nav-section">PANELS</div>
@@ -163,14 +178,6 @@ function App() {
                     }}
                   >
                     {PHASE_LABEL[s.phase]}
-                    {(s.phase === "approach" || s.phase === "landing") && (
-                      <span
-                        className="live-dot"
-                        style={{ marginLeft: 6, color: "var(--good)" }}
-                      >
-                        ●
-                      </span>
-                    )}
                   </div>
                 </div>
                 <div style={{ padding: "8px 10px 4px" }}>
@@ -188,18 +195,19 @@ function App() {
                     className="mono"
                     style={{ fontSize: 12, color: "var(--fg)", marginTop: 2 }}
                   >
-                    {s.aircraft.code}{" "}
+                    {s.aircraft.code ?? "TODO"}
                     <span style={{ color: "var(--fg-3)" }}>
-                      · {s.aircraft.operator.split(" ")[0]}
+                      {" "}
+                      - backend field missing
                     </span>
                   </div>
                 </div>
               </div>
               <div className="sidebar-foot">
-                <div className="conn">
-                  <span className="dot"></span> ws://127.0.0.1:8421
+                <div className={`conn ${s.connected ? "" : "bad"}`}>
+                  <span className="dot"></span> {s.bridgeUrl}
                 </div>
-                <div>BRIDGE 12 ms · 20 Hz</div>
+                <div>{bridgeStatus}</div>
                 <div>{clock}</div>
               </div>
             </div>
@@ -211,25 +219,16 @@ function App() {
                   <span className="crumb">{pt.crumb}</span>
                 </div>
                 <div className="tools">
-                  {page === "monitor" &&
-                    (s.phase === "approach" || s.phase === "landing") && (
-                      <span>
-                        <span
-                          className="live-dot"
-                          style={{ color: "var(--good)" }}
-                        >
-                          ●
-                        </span>{" "}
-                        RECORDING
-                      </span>
-                    )}
+                  {page === "monitor" && s.connected && <span>LIVE TELEMETRY</span>}
+                  <span>ALT {fmt(s.altMSL)} FT</span>
                   <span>
-                    FL{Math.round(s.altMSL / 100).toString().padStart(3, "0")}
+                    HDG {padHdg(s.heading)} / IAS {fmt(s.ias)}
                   </span>
                   <span>
-                    {padHdg(s.heading)}°/{Math.round(s.ias)}
+                    {s.distNm === null
+                      ? "DIST TODO"
+                      : `${s.distNm.toFixed(2)} NM`}
                   </span>
-                  <span>{s.distNm.toFixed(2)} NM</span>
                 </div>
               </div>
               <div className="pane-body">{renderScreen()}</div>

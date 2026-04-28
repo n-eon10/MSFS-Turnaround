@@ -33,6 +33,9 @@ bool LandingDetector::update(const AircraftTelemetry& telemetry) {
     latestLanding_.touchdownHeadingDeg = telemetry.headingDeg;
     latestLanding_.touchdownLatitudeDeg = telemetry.latitudeDeg;
     latestLanding_.touchdownLongitudeDeg = telemetry.longitudeDeg;
+    latestLanding_.touchdownPitchDeg = telemetry.pitchDeg;
+    latestLanding_.touchdownBankDeg = telemetry.bankDeg;
+    latestLanding_.touchdownGForce = telemetry.gForce;
     latestLanding_.score = calculateScore(latestLanding_);
 
     return true;
@@ -50,6 +53,9 @@ double LandingDetector::calculateScore(const LandingAnalysis& analysis) {
     if (touchdownRate > 150.0) {
         score -= std::min(35.0, (touchdownRate - 150.0) * 0.08);
     }
+
+    const double touchdownG = std::max(0.0, analysis.touchdownGForce - 1.2);
+    score -= std::min(25.0, touchdownG * 50.0);
 
     return std::clamp(score, 0.0, 100.0);
 }

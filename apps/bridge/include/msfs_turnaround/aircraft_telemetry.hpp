@@ -12,6 +12,11 @@ struct AircraftTelemetry {
     double gearHandlePosition;
     double flapsHandleIndex;
     double simOnGround;
+    double groundSpeedKt;
+    double altitudeAboveGroundFt;
+    double pitchDeg;
+    double bankDeg;
+    double gForce;
 };
 
 }

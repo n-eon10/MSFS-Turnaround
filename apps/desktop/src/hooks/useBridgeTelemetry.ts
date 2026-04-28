@@ -3,6 +3,7 @@ import type {
   AircraftTelemetry,
   BridgeConnectionStatus,
   BridgeMessage,
+  LandingAnalysisPayload,
 } from "../types/telemetry";
 
 const BRIDGE_URL = "ws://localhost:48787";
@@ -13,6 +14,8 @@ export function useBridgeTelemetry() {
 
   const [status, setStatus] = useState<BridgeConnectionStatus>("connecting");
   const [telemetry, setTelemetry] = useState<AircraftTelemetry | null>(null);
+  const [landingAnalysis, setLandingAnalysis] =
+    useState<LandingAnalysisPayload | null>(null);
   const [lastMessageAt, setLastMessageAt] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -43,6 +46,11 @@ export function useBridgeTelemetry() {
 
           if (message.type === "aircraft.telemetry") {
             setTelemetry(message.payload as AircraftTelemetry);
+            setLastMessageAt(new Date());
+          }
+
+          if (message.type === "landing.analysis") {
+            setLandingAnalysis(message.payload as LandingAnalysisPayload);
             setLastMessageAt(new Date());
           }
         } catch {
@@ -86,6 +94,7 @@ export function useBridgeTelemetry() {
   return {
     status,
     telemetry,
+    landingAnalysis,
     lastMessageAt,
     bridgeUrl: BRIDGE_URL,
   };

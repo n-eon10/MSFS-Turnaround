@@ -362,6 +362,29 @@ body {
   box-shadow: 0 0 6px currentColor;
 }
 
+.todo {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--warn);
+  background: var(--warn-bg);
+  color: var(--warn);
+  white-space: nowrap;
+}
+
+.todo-note {
+  color: var(--fg-2);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
 .btn {
   appearance: none;
   font-family: 'Inter', sans-serif;

@@ -10,6 +10,9 @@ struct LandingAnalysis {
     double touchdownHeadingDeg = 0.0;
     double touchdownLatitudeDeg = 0.0;
     double touchdownLongitudeDeg = 0.0;
+    double touchdownPitchDeg = 0.0;
+    double touchdownBankDeg = 0.0;
+    double touchdownGForce = 0.0;
     double score = 0.0;
 };
 

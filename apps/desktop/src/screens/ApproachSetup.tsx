@@ -1,120 +1,62 @@
-import { useState } from "react";
-import {
-  APPROACH_PRESETS,
-  type ApproachKey,
-  type UseSimResult,
-} from "../sim/useSim";
-import { padHdg } from "../sim/format";
-import { StatusPill } from "./common";
-
-const RUNWAYS = [
-  { code: "28R", len: 11870, ils: true, rnav: true, course: 281 },
-  { code: "28L", len: 11381, ils: true, rnav: true, course: 281 },
-  { code: "10L", len: 11870, ils: false, rnav: true, course: 101 },
-  { code: "10R", len: 11381, ils: false, rnav: true, course: 101 },
-  { code: "01L", len: 7650, ils: false, rnav: true, course: 11 },
-  { code: "01R", len: 8650, ils: true, rnav: true, course: 11 },
-  { code: "19L", len: 8650, ils: false, rnav: true, course: 191 },
-  { code: "19R", len: 7650, ils: false, rnav: true, course: 191 },
-];
-
-const SETUP_CHECKS: Array<{
-  id: string;
-  label: string;
-  value: string;
-  done: boolean;
-  active?: boolean;
-}> = [
-  { id: "altim", label: "Altimeter set", value: "29.92 / 1013", done: true },
-  { id: "brief", label: "Approach briefing", value: "COMPLETE", done: true },
-  { id: "auto", label: "Autobrake", value: "MED", done: true },
-  { id: "spoil", label: "Spoilers", value: "ARMED", done: false, active: true },
-  { id: "flap", label: "Flaps configuration", value: "CONF FULL @ FAF", done: false },
-  { id: "gear", label: "Landing gear", value: "DOWN @ G/S CAPTURE", done: false },
-  { id: "cabin", label: "Cabin secure", value: "—", done: false },
-];
+import type { UseSimResult } from "../sim/useSim";
+import { fmt, padHdg } from "../sim/format";
+import { StatusPill, TodoValue } from "./common";
 
 export function ApproachSetup({ sim }: { sim: UseSimResult }) {
   const s = sim.state;
-  const [airport, setAirport] = useState("KSFO");
-  const [runway, setRunway] = useState("28R");
-  const rw = RUNWAYS.find((r) => r.code === runway);
 
   return (
     <>
       <div className="row" style={{ gap: 14 }}>
         <div className="card flex-1">
           <div className="card-head">
-            <span className="lbl">AIRPORT</span>
+            <span className="lbl">SETUP STATUS</span>
+            <StatusPill kind="warn">TODO</StatusPill>
           </div>
-          <div
-            className="card-body"
-            style={{ display: "flex", gap: 18, alignItems: "center" }}
-          >
-            <input
-              className="mono"
-              value={airport}
-              onChange={(e) =>
-                setAirport(e.target.value.toUpperCase().slice(0, 4))
-              }
-              style={{
-                width: 120,
-                fontSize: 28,
-                fontWeight: 700,
-                padding: "8px 12px",
-                background: "var(--panel-2)",
-                border: "1px solid var(--border-2)",
-                color: "var(--fg)",
-                borderRadius: 6,
-                outline: "none",
-                letterSpacing: "0.06em",
-              }}
-            />
-            <div style={{ flex: 1 }}>
-              <div className="metric">
-                <div className="lbl">Name</div>
-                <div className="val mono" style={{ fontSize: 14 }}>
-                  San Francisco Intl
-                </div>
-              </div>
-            </div>
-            <div className="kv">
-              <div className="k">Elev</div>
-              <div className="v">13 ft</div>
-              <div className="k">Var</div>
-              <div className="v">14°E</div>
-              <div className="k">METAR</div>
-              <div className="v">28010KT 10SM CLR 18/12</div>
+          <div className="card-body">
+            <div className="todo-note">
+              TODO: approach setup is not implemented end to end. The frontend no
+              longer carries hardcoded KSFO/runway/procedure data; the bridge needs
+              to publish flight plan, selected runway, approach procedure, minimums,
+              and aircraft performance data before this panel can arm a real
+              approach.
             </div>
           </div>
         </div>
       </div>
 
       <div className="row" style={{ gap: 14 }}>
-        <div className="card" style={{ flex: 1.2 }}>
+        <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
-            <span className="lbl">RUNWAY</span>
-            <span
-              className="mono"
-              style={{ fontSize: 10, color: "var(--fg-3)" }}
-            >
-              8 RUNWAYS · 4 ILS-CAPABLE
+            <span className="lbl">AIRPORT / RUNWAY</span>
+            <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>
+              BACKEND DATA REQUIRED
             </span>
           </div>
-          <div className="card-body">
-            <div className="tile-grid">
-              {RUNWAYS.map((r) => (
-                <div
-                  key={r.code}
-                  className={`tile ${runway === r.code ? "sel" : ""}`}
-                  onClick={() => setRunway(r.code)}
-                >
-                  <div className="code">RWY {r.code}</div>
-                  <div className="meta">
-                    {r.len} FT · {r.ils ? "ILS · RNAV" : "RNAV"}
-                  </div>
-                </div>
-              ))}
+          <div className="card-body grid-4" style={{ gap: 22 }}>
+            <div className="metric">
+              <div className="lbl">Airport</div>
+              <div className="val mono" style={{ fontSize: 22 }}>
+                <TodoValue />
+              </div>
+            </div>
+            <div className="metric">
+              <div className="lbl">Runway</div>
+              <div className="val mono" style={{ fontSize: 22 }}>
+                <TodoValue />
+              </div>
+            </div>
+            <div className="metric">
+              <div className="lbl">Course</div>
+              <div className="val mono" style={{ fontSize: 22 }}>
+                <TodoValue />
+              </div>
+            </div>
+            <div className="metric">
+              <div className="lbl">Threshold elev</div>
+              <div className="val mono" style={{ fontSize: 22 }}>
+                <TodoValue />
+              </div>
             </div>
           </div>
         </div>
@@ -123,61 +65,18 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
           <div className="card-head">
             <span className="lbl">APPROACH TYPE</span>
           </div>
-          <div
-            className="card-body"
-            style={{ gap: 10, display: "flex", flexDirection: "column" }}
-          >
-            {(Object.entries(APPROACH_PRESETS) as Array<
-              [ApproachKey, (typeof APPROACH_PRESETS)[ApproachKey]]
-            >).map(([k, v]) => {
-              const supported =
-                k === "ILS" ? !!rw?.ils : k === "RNAV" ? !!rw?.rnav : true;
-              const sel = s.approach.name === v.name;
-              return (
-                <div
-                  key={k}
-                  onClick={() => supported && sim.actions.setApproach(k)}
-                  style={{
-                    padding: "12px 14px",
-                    border:
-                      "1px solid " +
-                      (sel ? "var(--accent)" : "var(--border)"),
-                    background: sel ? "var(--accent-bg)" : "var(--panel-2)",
-                    borderRadius: 6,
-                    cursor: supported ? "pointer" : "not-allowed",
-                    opacity: supported ? 1 : 0.4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <div>
-                    <div
-                      className="mono"
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: sel ? "var(--accent)" : "var(--fg)",
-                      }}
-                    >
-                      {v.name}
-                    </div>
-                    <div
-                      className="mono"
-                      style={{
-                        fontSize: 10.5,
-                        color: "var(--fg-3)",
-                        marginTop: 3,
-                      }}
-                    >
-                      {v.full}
-                    </div>
-                  </div>
-                  {!supported && <span className="pill">UNAVAILABLE</span>}
-                  {sel && <StatusPill kind="good">SELECTED</StatusPill>}
+          <div className="card-body">
+            <div className="todo-note" style={{ marginBottom: 14 }}>
+              TODO: replace this with backend-driven procedure choices.
+            </div>
+            <div className="grid-3">
+              {["ILS", "RNAV", "VISUAL"].map((label) => (
+                <div key={label} className="tile" style={{ cursor: "default" }}>
+                  <div className="code">{label}</div>
+                  <div className="meta">TODO</div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -185,55 +84,34 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
       <div className="row" style={{ gap: 14 }}>
         <div className="card flex-1">
           <div className="card-head">
-            <span className="lbl">PROCEDURE DATA</span>
+            <span className="lbl">LIVE AIRCRAFT CONTEXT</span>
+            <span className={`badge ${s.hasTelemetry ? "live" : ""}`}>
+              {s.hasTelemetry ? "FROM BRIDGE" : "WAITING"}
+            </span>
           </div>
           <div className="card-body grid-4" style={{ gap: 22 }}>
             <div className="metric">
-              <div className="lbl">Course</div>
+              <div className="lbl">Latitude</div>
               <div className="val mono" style={{ fontSize: 22 }}>
-                {padHdg(s.approach.course)}°
+                {s.lat === null ? "-" : s.lat.toFixed(5)}
               </div>
             </div>
             <div className="metric">
-              <div className="lbl">Frequency</div>
+              <div className="lbl">Longitude</div>
               <div className="val mono" style={{ fontSize: 22 }}>
-                {s.approach.freq}
+                {s.lon === null ? "-" : s.lon.toFixed(5)}
               </div>
             </div>
             <div className="metric">
-              <div className="lbl">{s.approach.minimumsKind || "MIN"}</div>
+              <div className="lbl">Altitude</div>
               <div className="val mono" style={{ fontSize: 22 }}>
-                {s.approach.minimumsFt} FT
+                {fmt(s.altMSL)} FT
               </div>
             </div>
             <div className="metric">
-              <div className="lbl">G/S Angle</div>
+              <div className="lbl">Heading</div>
               <div className="val mono" style={{ fontSize: 22 }}>
-                {s.approach.glideslopeDeg.toFixed(1)}°
-              </div>
-            </div>
-            <div className="metric">
-              <div className="lbl">RWY length</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
-                {rw?.len} FT
-              </div>
-            </div>
-            <div className="metric">
-              <div className="lbl">Threshold elev</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
-                13 FT
-              </div>
-            </div>
-            <div className="metric">
-              <div className="lbl">VRef</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
-                {s.aircraft.vRef} KT
-              </div>
-            </div>
-            <div className="metric">
-              <div className="lbl">VApp</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
-                {s.aircraft.vApp} KT
+                {padHdg(s.heading)} DEG
               </div>
             </div>
           </div>
@@ -243,28 +121,14 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
       <div className="row" style={{ gap: 14 }}>
         <div className="card flex-1">
           <div className="card-head">
-            <span className="lbl">FINAL CHECKLIST · {s.aircraft.code}</span>
-            <span
-              className="mono"
-              style={{ fontSize: 10, color: "var(--fg-3)" }}
-            >
-              3 / 7 COMPLETE
-            </span>
+            <span className="lbl">FINAL CHECKLIST</span>
+            <StatusPill kind="warn">TODO</StatusPill>
           </div>
-          <div
-            className="card-body"
-            style={{ display: "flex", flexDirection: "column", gap: 4 }}
-          >
-            {SETUP_CHECKS.map((c) => (
-              <div
-                key={c.id}
-                className={`check ${c.done ? "done" : c.active ? "active" : "pending"}`}
-              >
-                <div className="box"></div>
-                <div className="lbl">{c.label}</div>
-                <div className="v">{c.value}</div>
-              </div>
-            ))}
+          <div className="card-body">
+            <div className="todo-note">
+              TODO: checklist state, spoiler arming, autobrake mode, cabin state,
+              and approach arming are not backed by SimConnect messages yet.
+            </div>
           </div>
         </div>
 
@@ -285,33 +149,12 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
               justifyContent: "space-between",
             }}
           >
-            <div>
-              <div
-                className="mono"
-                style={{
-                  fontSize: 11,
-                  color: "var(--fg-3)",
-                  lineHeight: 1.6,
-                }}
-              >
-                Once armed, the panel will switch to Live Approach Monitor
-                automatically when the aircraft passes the FAF.
-              </div>
+            <div className="todo-note">
+              TODO: arming requires a backend approach-tracking state machine.
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <button
-                className="btn primary"
-                onClick={() => sim.actions.jumpTo("approach")}
-              >
-                ARM APPROACH
-              </button>
-              <button
-                className="btn ghost"
-                onClick={() => sim.actions.jumpTo("preflight")}
-              >
-                RESET
-              </button>
-            </div>
+            <button className="btn primary" disabled>
+              ARM APPROACH
+            </button>
           </div>
         </div>
       </div>
