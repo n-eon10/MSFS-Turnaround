@@ -10,6 +10,7 @@ add_executable(msfs_turnaround_bridge
     src/main.cpp
     src/simconnect_client.cpp
     src/websocket_server.cpp
+    src/landing_analysis.cpp
 )
 
 target_compile_definitions(msfs_turnaround_bridge PRIVATE

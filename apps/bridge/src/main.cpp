@@ -1,6 +1,8 @@
 #include "msfs_turnaround/simconnect_client.hpp"
 #include "msfs_turnaround/websocket_server.hpp"
 
+#include "msfs_turnaround/landing_analysis.hpp"
+
 #include <ixwebsocket/IXNetSystem.h>
 #include <nlohmann/json.hpp>
 
@@ -29,6 +31,22 @@ std::string telemetryToJson(const msfs_turnaround::AircraftTelemetry& telemetry)
     return message.dump();
 }
 
+std::string landingAnalysisToJson(const msfs_turnaround::LandingAnalysis& analysis) {
+    nlohmann::json message = {
+        {"type", "landing.analysis"},
+        {"payload", {
+            {"touchdownVerticalSpeedFpm", analysis.touchdownVerticalSpeedFpm},
+            {"touchdownAirspeedKt", analysis.touchdownAirspeedKt},
+            {"touchdownHeadingDeg", analysis.touchdownHeadingDeg},
+            {"touchdownLatitudeDeg", analysis.touchdownLatitudeDeg},
+            {"touchdownLongitudeDeg", analysis.touchdownLongitudeDeg},
+            {"score", analysis.score}
+        }}
+    };
+
+    return message.dump();
+}
+
 }
 
 int main() {
@@ -51,9 +69,25 @@ int main() {
         return 1;
     }
 
+    msfs_turnaround::LandingDetector landingDetector;
+
     simConnectClient.setTelemetryCallback(
-        [&webSocketServer](const msfs_turnaround::AircraftTelemetry& telemetry) {
+        [&webSocketServer, &landingDetector](const msfs_turnaround::AircraftTelemetry& telemetry) {
             webSocketServer.broadcast(telemetryToJson(telemetry));
+
+            if (landingDetector.update(telemetry)) {
+                const auto& analysis = landingDetector.latestLanding();
+                webSocketServer.broadcast(landingAnalysisToJson(analysis));
+
+                std::cout
+                    << "Landing detected: VS="
+                    << analysis.touchdownVerticalSpeedFpm
+                    << " FPM IAS="
+                    << analysis.touchdownAirspeedKt
+                    << " KT SCORE="
+                    << analysis.score
+                    << std::endl;
+            }
         }
     );
 
