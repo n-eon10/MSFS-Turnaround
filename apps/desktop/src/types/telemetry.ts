@@ -27,6 +27,33 @@ export type LandingAnalysisPayload = {
   score: number;
 };
 
+export type NavAirport = {
+  ident: string;
+  name: string;
+  type: string;
+  latitudeDeg: number;
+  longitudeDeg: number;
+  elevationFt: number;
+  isoCountry: string;
+  municipality: string;
+};
+
+export type NavRunwayEnd = {
+  airportIdent: string;
+  runwayIdent: string;
+  oppositeIdent: string;
+  latitudeDeg: number;
+  longitudeDeg: number;
+  elevationFt: number;
+  headingDegT: number;
+  displacedThresholdFt: number;
+  lengthFt: number;
+  widthFt: number;
+  surface: string;
+  lighted: boolean;
+  closed: boolean;
+};
+
 export type BridgeMessage =
   | {
       type: "aircraft.telemetry";
@@ -35,6 +62,25 @@ export type BridgeMessage =
   | {
       type: "landing.analysis";
       payload: LandingAnalysisPayload;
+    }
+  | {
+      type: "navdata.search_airports.result";
+      query: string;
+      airports: NavAirport[];
+      error?: string;
+    }
+  | {
+      type: "navdata.get_runways.result";
+      airportIdent: string;
+      runways: NavRunwayEnd[];
+      error?: string;
+    }
+  | {
+      type: "approach.select_runway.result";
+      ok: boolean;
+      airportIdent: string;
+      runwayIdent: string;
+      error?: string;
     }
   | {
       type: string;

@@ -5,6 +5,8 @@ import type {
   AircraftTelemetry,
   BridgeConnectionStatus,
   LandingAnalysisPayload,
+  NavAirport,
+  NavRunwayEnd,
 } from "../types/telemetry";
 
 export type AircraftKey = string;
@@ -109,6 +111,14 @@ export type SimState = {
   stability: Stability | null;
   trajectoryHistory: TrajectoryRecord[];
   report: LandingReport | null;
+  navdata: {
+    airportSearchQuery: string;
+    airportResults: NavAirport[];
+    runwayAirportIdent: string;
+    runwayResults: NavRunwayEnd[];
+    selectedRunway: NavRunwayEnd | null;
+    error: string | null;
+  };
   todos: string[];
 };
 
@@ -120,6 +130,9 @@ export type SimActions = {
   setAircraft: (k: AircraftKey) => void;
   setApproach: (k: ApproachKey) => void;
   setStability: (s: Stability) => void;
+  searchAirports: (query: string, limit?: number) => void;
+  requestRunways: (airportIdent: string) => void;
+  selectRunway: (runway: NavRunwayEnd) => void;
 };
 
 export type UseSimResult = { state: SimState; actions: SimActions };
@@ -170,7 +183,7 @@ const UNKNOWN_RUNWAY: Runway = {
 
 const TODOS = [
   "Backend does not publish aircraft identity/performance data yet.",
-  "Backend does not publish flight plan, airport, runway, or approach/navdata yet.",
+  "Backend does not publish flight plan or official approach procedure data yet.",
   "Backend does not publish localizer/glideslope deviation or runway-relative distance yet.",
   "Backend does not publish bridge PID, latency, or sim rate yet.",
   "Landing analysis does not calculate centerline, touchdown-zone distance, flare quality, or bounce yet.",
@@ -231,8 +244,22 @@ function flapsLabel(flapsIdx: number | null): string | null {
 }
 
 export function useSim(_options: UseSimOptions = {}): UseSimResult {
-  const { status, telemetry, landingAnalysis, lastMessageAt, bridgeUrl } =
-    useBridgeTelemetry();
+  const {
+    status,
+    telemetry,
+    landingAnalysis,
+    airportSearchQuery,
+    airportResults,
+    runwayAirportIdent,
+    runwayResults,
+    selectedRunway,
+    navdataError,
+    searchAirports,
+    requestRunways,
+    selectRunway,
+    lastMessageAt,
+    bridgeUrl,
+  } = useBridgeTelemetry();
   const [paused, setPaused] = useState(false);
   const [trajectoryHistory, setTrajectoryHistory] = useState<TrajectoryRecord[]>(
     []
@@ -271,6 +298,19 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
 
   const phase = derivePhase(telemetry, landingAnalysis);
   const flapsIdx = telemetry ? numberOrNull(telemetry.flapsHandleIndex) : null;
+  const runway: Runway = selectedRunway
+    ? {
+        airport: selectedRunway.airportIdent,
+        airportName: null,
+        runway: selectedRunway.runwayIdent,
+        oppositeRunway: selectedRunway.oppositeIdent,
+        course: selectedRunway.headingDegT,
+        lengthFt: selectedRunway.lengthFt,
+        widthFt: selectedRunway.widthFt,
+        thresholdElevFt: selectedRunway.elevationFt,
+        ilsFreq: null,
+      }
+    : UNKNOWN_RUNWAY;
 
   return {
     state: {
@@ -283,7 +323,7 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
       simRate: null,
       aircraft: UNKNOWN_AIRCRAFT,
       approach: UNKNOWN_APPROACH,
-      runway: UNKNOWN_RUNWAY,
+      runway,
       phase,
       t: null,
       ias: telemetry ? numberOrNull(telemetry.indicatedAirspeedKt) : null,
@@ -309,6 +349,14 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
       stability: null,
       trajectoryHistory,
       report,
+      navdata: {
+        airportSearchQuery,
+        airportResults,
+        runwayAirportIdent,
+        runwayResults,
+        selectedRunway,
+        error: navdataError,
+      },
       todos: TODOS,
     },
     actions: {
@@ -319,6 +367,9 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
       setAircraft: noopAircraft,
       setApproach: noopApproach,
       setStability: noopStability,
+      searchAirports,
+      requestRunways,
+      selectRunway,
     },
   };
 }

@@ -1,26 +1,117 @@
+import { useState, type FormEvent } from "react";
+
+import type { NavAirport, NavRunwayEnd } from "../types/telemetry";
 import type { UseSimResult } from "../sim/useSim";
 import { fmt, padHdg } from "../sim/format";
 import { StatusPill, TodoValue } from "./common";
 
+function AirportResult({
+  airport,
+  selected,
+  onSelect,
+}: {
+  airport: NavAirport;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`tile ${selected ? "sel" : ""}`}
+      onClick={onSelect}
+      style={{ textAlign: "left" }}
+    >
+      <div className="code">{airport.ident}</div>
+      <div className="meta">
+        {airport.name}
+        {airport.municipality ? ` - ${airport.municipality}` : ""}
+      </div>
+    </button>
+  );
+}
+
+function RunwayResult({
+  runway,
+  selected,
+  onSelect,
+}: {
+  runway: NavRunwayEnd;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`tile ${selected ? "sel" : ""}`}
+      onClick={onSelect}
+      style={{ textAlign: "left" }}
+    >
+      <div className="code">RWY {runway.runwayIdent}</div>
+      <div className="meta">
+        {padHdg(runway.headingDegT)} DEG - {fmt(runway.lengthFt)} FT
+      </div>
+    </button>
+  );
+}
+
 export function ApproachSetup({ sim }: { sim: UseSimResult }) {
   const s = sim.state;
+  const navdata = s.navdata;
+  const selectedRunway = navdata.selectedRunway;
+  const [query, setQuery] = useState(navdata.airportSearchQuery);
+  const [selectedAirport, setSelectedAirport] = useState<NavAirport | null>(null);
+
+  const submitSearch = (event: FormEvent) => {
+    event.preventDefault();
+    sim.actions.searchAirports(query, 20);
+  };
+
+  const selectAirport = (airport: NavAirport) => {
+    setSelectedAirport(airport);
+    sim.actions.requestRunways(airport.ident);
+  };
 
   return (
     <>
       <div className="row" style={{ gap: 14 }}>
         <div className="card flex-1">
           <div className="card-head">
-            <span className="lbl">SETUP STATUS</span>
-            <StatusPill kind="warn">TODO</StatusPill>
+            <span className="lbl">AIRPORT SEARCH</span>
+            <StatusPill kind={s.connected ? "good" : "warn"}>
+              {s.connected ? "BRIDGE READY" : "BRIDGE OFFLINE"}
+            </StatusPill>
           </div>
           <div className="card-body">
-            <div className="todo-note">
-              TODO: approach setup is not implemented end to end. The frontend no
-              longer carries hardcoded KSFO/runway/procedure data; the bridge needs
-              to publish flight plan, selected runway, approach procedure, minimums,
-              and aircraft performance data before this panel can arm a real
-              approach.
-            </div>
+            <form
+              onSubmit={submitSearch}
+              style={{ display: "flex", gap: 10, alignItems: "center" }}
+            >
+              <input
+                className="mono"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Airport ident, name, or city"
+                style={{
+                  flex: 1,
+                  fontSize: 18,
+                  fontWeight: 600,
+                  padding: "10px 12px",
+                  background: "var(--panel-2)",
+                  border: "1px solid var(--border-2)",
+                  color: "var(--fg)",
+                  borderRadius: 6,
+                  outline: "none",
+                }}
+              />
+              <button className="btn primary" type="submit">
+                SEARCH
+              </button>
+            </form>
+            {navdata.error && (
+              <div className="todo-note" style={{ marginTop: 12, color: "var(--warn)" }}>
+                {navdata.error}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -28,90 +119,129 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
       <div className="row" style={{ gap: 14 }}>
         <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
-            <span className="lbl">AIRPORT / RUNWAY</span>
+            <span className="lbl">AIRPORTS</span>
             <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>
-              BACKEND DATA REQUIRED
+              {navdata.airportResults.length} RESULTS
             </span>
+          </div>
+          <div className="card-body">
+            {navdata.airportResults.length > 0 ? (
+              <div className="tile-grid">
+                {navdata.airportResults.map((airport) => (
+                  <AirportResult
+                    key={airport.ident}
+                    airport={airport}
+                    selected={selectedAirport?.ident === airport.ident}
+                    onSelect={() => selectAirport(airport)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="todo-note">
+                Type a search query and select an airport to load runway ends.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="card" style={{ flex: 1 }}>
+          <div className="card-head">
+            <span className="lbl">RUNWAY ENDS</span>
+            <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>
+              {navdata.runwayAirportIdent || "NO AIRPORT"}
+            </span>
+          </div>
+          <div className="card-body">
+            {navdata.runwayResults.length > 0 ? (
+              <div className="tile-grid">
+                {navdata.runwayResults.map((runway) => (
+                  <RunwayResult
+                    key={`${runway.airportIdent}-${runway.runwayIdent}`}
+                    runway={runway}
+                    selected={
+                      selectedRunway?.airportIdent === runway.airportIdent &&
+                      selectedRunway?.runwayIdent === runway.runwayIdent
+                    }
+                    onSelect={() => sim.actions.selectRunway(runway)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="todo-note">
+                {selectedAirport
+                  ? "No runway ends returned for this airport."
+                  : "Select an airport to request runway ends."}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="row" style={{ gap: 14 }}>
+        <div className="card flex-1">
+          <div className="card-head">
+            <span className="lbl">SELECTED RUNWAY</span>
+            {selectedRunway ? (
+              <StatusPill kind="good">SELECTED</StatusPill>
+            ) : (
+              <StatusPill kind="warn">NONE</StatusPill>
+            )}
           </div>
           <div className="card-body grid-4" style={{ gap: 22 }}>
             <div className="metric">
               <div className="lbl">Airport</div>
               <div className="val mono" style={{ fontSize: 22 }}>
-                <TodoValue />
+                {selectedRunway?.airportIdent ?? <TodoValue label="NONE" />}
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Runway</div>
               <div className="val mono" style={{ fontSize: 22 }}>
-                <TodoValue />
+                {selectedRunway?.runwayIdent ?? <TodoValue label="NONE" />}
               </div>
-            </div>
-            <div className="metric">
-              <div className="lbl">Course</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
-                <TodoValue />
-              </div>
-            </div>
-            <div className="metric">
-              <div className="lbl">Threshold elev</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
-                <TodoValue />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="card" style={{ flex: 1 }}>
-          <div className="card-head">
-            <span className="lbl">APPROACH TYPE</span>
-          </div>
-          <div className="card-body">
-            <div className="todo-note" style={{ marginBottom: 14 }}>
-              TODO: replace this with backend-driven procedure choices.
-            </div>
-            <div className="grid-3">
-              {["ILS", "RNAV", "VISUAL"].map((label) => (
-                <div key={label} className="tile" style={{ cursor: "default" }}>
-                  <div className="code">{label}</div>
-                  <div className="meta">TODO</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="row" style={{ gap: 14 }}>
-        <div className="card flex-1">
-          <div className="card-head">
-            <span className="lbl">LIVE AIRCRAFT CONTEXT</span>
-            <span className={`badge ${s.hasTelemetry ? "live" : ""}`}>
-              {s.hasTelemetry ? "FROM BRIDGE" : "WAITING"}
-            </span>
-          </div>
-          <div className="card-body grid-4" style={{ gap: 22 }}>
-            <div className="metric">
-              <div className="lbl">Latitude</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
-                {s.lat === null ? "-" : s.lat.toFixed(5)}
-              </div>
-            </div>
-            <div className="metric">
-              <div className="lbl">Longitude</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
-                {s.lon === null ? "-" : s.lon.toFixed(5)}
-              </div>
-            </div>
-            <div className="metric">
-              <div className="lbl">Altitude</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
-                {fmt(s.altMSL)} FT
+              <div className="sub">
+                Opposite {selectedRunway?.oppositeIdent || "-"}
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Heading</div>
               <div className="val mono" style={{ fontSize: 22 }}>
-                {padHdg(s.heading)} DEG
+                {selectedRunway ? `${padHdg(selectedRunway.headingDegT)} DEG` : "-"}
+              </div>
+            </div>
+            <div className="metric">
+              <div className="lbl">Surface</div>
+              <div className="val mono" style={{ fontSize: 22 }}>
+                {selectedRunway?.surface || "-"}
+              </div>
+            </div>
+            <div className="metric">
+              <div className="lbl">Length</div>
+              <div className="val mono" style={{ fontSize: 22 }}>
+                {fmt(selectedRunway?.lengthFt)} FT
+              </div>
+            </div>
+            <div className="metric">
+              <div className="lbl">Width</div>
+              <div className="val mono" style={{ fontSize: 22 }}>
+                {fmt(selectedRunway?.widthFt)} FT
+              </div>
+            </div>
+            <div className="metric">
+              <div className="lbl">Threshold lat/lon</div>
+              <div className="val mono" style={{ fontSize: 18 }}>
+                {selectedRunway
+                  ? `${selectedRunway.latitudeDeg.toFixed(5)}, ${selectedRunway.longitudeDeg.toFixed(5)}`
+                  : "-"}
+              </div>
+            </div>
+            <div className="metric">
+              <div className="lbl">Threshold elev</div>
+              <div className="val mono" style={{ fontSize: 22 }}>
+                {fmt(selectedRunway?.elevationFt)} FT
+              </div>
+              <div className="sub">
+                Displaced {fmt(selectedRunway?.displacedThresholdFt)} FT
               </div>
             </div>
           </div>
@@ -121,40 +251,12 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
       <div className="row" style={{ gap: 14 }}>
         <div className="card flex-1">
           <div className="card-head">
-            <span className="lbl">FINAL CHECKLIST</span>
+            <span className="lbl">OUT OF SCOPE FOR THIS MILESTONE</span>
             <StatusPill kind="warn">TODO</StatusPill>
           </div>
-          <div className="card-body">
-            <div className="todo-note">
-              TODO: checklist state, spoiler arming, autobrake mode, cabin state,
-              and approach arming are not backed by SimConnect messages yet.
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="card"
-          style={{ width: 280, display: "flex", flexDirection: "column" }}
-        >
-          <div className="card-head">
-            <span className="lbl">ARM</span>
-          </div>
-          <div
-            className="card-body"
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              gap: 14,
-              justifyContent: "space-between",
-            }}
-          >
-            <div className="todo-note">
-              TODO: arming requires a backend approach-tracking state machine.
-            </div>
-            <button className="btn primary" disabled>
-              ARM APPROACH
-            </button>
+          <div className="card-body todo-note">
+            Navaids, airport frequencies, official ILS/RNAV procedures, and
+            approach guidance calculations are not implemented yet.
           </div>
         </div>
       </div>

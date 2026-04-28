@@ -11,6 +11,7 @@ add_executable(msfs_turnaround_bridge
     src/simconnect_client.cpp
     src/websocket_server.cpp
     src/landing_analysis.cpp
+    src/navdata/NavDatabase.cpp
 )
 
 target_compile_definitions(msfs_turnaround_bridge PRIVATE
@@ -81,6 +82,7 @@ message(STATUS "Using MSFS SDK: ${MSFS_SDK_DIR}")
 
 find_package(ixwebsocket CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(unofficial-sqlite3 CONFIG REQUIRED)
 
 # ------------------------------------------------------------
 # Includes
@@ -88,6 +90,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 target_include_directories(msfs_turnaround_bridge PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${SIMCONNECT_INCLUDE_DIR}"
 )
 
@@ -103,6 +106,7 @@ target_link_libraries(msfs_turnaround_bridge PRIVATE
     SimConnect
     ixwebsocket::ixwebsocket
     nlohmann_json::nlohmann_json
+    unofficial::sqlite3::sqlite3
     bcrypt
 )
 

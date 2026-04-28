@@ -12,7 +12,7 @@ export type AppPage = "dashboard" | "setup" | "monitor" | "analysis";
 
 const NAV: Array<{ id: AppPage; label: string; num: string }> = [
   { id: "dashboard", label: "Dashboard", num: "01" },
-  { id: "setup", label: "Setup TODO", num: "02" },
+  { id: "setup", label: "Airport Setup", num: "02" },
   { id: "monitor", label: "Live Monitor", num: "03" },
   { id: "analysis", label: "Landing Analysis", num: "04" },
 ];
@@ -26,7 +26,7 @@ const PHASE_LABEL: Record<Phase, string> = {
 
 const PAGE_TITLES: Record<AppPage, { h: string; crumb: string }> = {
   dashboard: { h: "Flight Dashboard", crumb: "BRIDGE / LIVE DATA" },
-  setup: { h: "Setup TODO", crumb: "TODO / NAVDATA + FLIGHT PLAN" },
+  setup: { h: "Airport / Runway Setup", crumb: "NAVDATA / LOCAL SQLITE" },
   monitor: { h: "Live Telemetry Monitor", crumb: "SIMCONNECT / WEBSOCKET" },
   analysis: { h: "Landing Analysis", crumb: "BRIDGE / TOUCHDOWN EVENT" },
 };
@@ -54,7 +54,6 @@ function bridgeStatusLabel(status: string): string {
 
 function App() {
   const [page, setPage] = useState<AppPage>("dashboard");
-  const [scale, setScale] = useState(1);
   const [clock, setClock] = useState(utcNow());
 
   const sim = useSim();
@@ -70,19 +69,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const fit = () => {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const sx = (w - 32) / 1440;
-      const sy = (h - 32) / 900;
-      setScale(Math.min(1, Math.min(sx, sy)));
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, []);
-
-  useEffect(() => {
     if (sim.state.phase === "landed" && sim.state.report && page === "monitor") {
       const id = setTimeout(() => setPage("analysis"), 600);
       return () => clearTimeout(id);
@@ -92,17 +78,6 @@ function App() {
   const s = sim.state;
   const pt = PAGE_TITLES[page];
   const bridgeStatus = bridgeStatusLabel(s.bridgeStatus);
-  const bridgeColor =
-    s.bridgeStatus === "connected"
-      ? "var(--good)"
-      : s.bridgeStatus === "error"
-        ? "var(--bad)"
-        : "var(--warn)";
-  const aircraftTitle = s.aircraft.code ?? "AIRCRAFT TODO";
-  const routeTitle =
-    s.runway.airport && s.runway.runway
-      ? `${s.runway.airport}/${s.runway.runway}`
-      : "FLIGHT PLAN TODO";
 
   const renderScreen = () => {
     switch (page) {
@@ -118,25 +93,7 @@ function App() {
   };
 
   return (
-    <div className="viewport">
-      <div className="scaler" style={{ transform: `scale(${scale})` }}>
-        <div className="win">
-          <div className="titlebar">
-            <div className="lights">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <span className="title-text">
-              MSFS Turnaround - {aircraftTitle} - {routeTitle}
-            </span>
-            <div className="title-meta">
-              <span style={{ color: bridgeColor }}>{bridgeStatus}</span>
-              <span>{clock}</span>
-            </div>
-          </div>
-
-          <div className="app">
+    <div className="app">
             <div className="sidebar">
               <div className="sidebar-brand">
                 <div className="name">MSFS TURNAROUND</div>
@@ -233,9 +190,6 @@ function App() {
               </div>
               <div className="pane-body">{renderScreen()}</div>
             </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

@@ -16,6 +16,7 @@ function ageLabel(date: Date | null): string | null {
 
 export function Dashboard({ sim }: { sim: UseSimResult }) {
   const s = sim.state;
+  const selectedRunway = s.navdata.selectedRunway;
   const phaseClass =
     s.phase === "preflight" ? "" : s.phase === "landed" ? "good" : "live";
   const lastMessageAge = ageLabel(s.lastMessageAt);
@@ -56,7 +57,11 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
                     <TodoValue />
                   )}
                 </div>
-                <div className="sub">TODO: selected airport/runway from backend</div>
+                <div className="sub">
+                  {selectedRunway
+                    ? "Selected through bridge navdata"
+                    : "TODO: select an airport/runway"}
+                </div>
               </div>
             </div>
           </div>
@@ -170,37 +175,42 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
       <div className="row" style={{ gap: 14 }}>
         <div className="card flex-1">
           <div className="card-head">
-            <span className="lbl">APPROACH / NAVDATA</span>
-            <StatusPill kind="warn">TODO</StatusPill>
+            <span className="lbl">ACTIVE RUNWAY</span>
+            <StatusPill kind={selectedRunway ? "good" : "warn"}>
+              {selectedRunway ? "SELECTED" : "TODO"}
+            </StatusPill>
           </div>
           <div className="card-body">
-            <div className="todo-note" style={{ marginBottom: 14 }}>
-              TODO: no backend message currently provides active flight plan,
-              selected runway, approach type, procedure course, minimums, or V-speeds.
-            </div>
+            {!selectedRunway && (
+              <div className="todo-note" style={{ marginBottom: 14 }}>
+                Use Airport Setup to search navdata and select a runway.
+              </div>
+            )}
             <div className="grid-4" style={{ gap: 22 }}>
               <div className="metric">
-                <div className="lbl">Approach</div>
+                <div className="lbl">Runway</div>
                 <div className="val mono" style={{ fontSize: 16 }}>
-                  <TodoValue />
+                  {selectedRunway
+                    ? `${selectedRunway.airportIdent}/${selectedRunway.runwayIdent}`
+                    : <TodoValue />}
                 </div>
               </div>
               <div className="metric">
                 <div className="lbl">Course</div>
                 <div className="val mono" style={{ fontSize: 16 }}>
-                  <TodoValue />
+                  {selectedRunway ? `${padHdg(selectedRunway.headingDegT)} DEG` : <TodoValue />}
                 </div>
               </div>
               <div className="metric">
-                <div className="lbl">Minimums</div>
+                <div className="lbl">Length</div>
                 <div className="val mono" style={{ fontSize: 16 }}>
-                  <TodoValue />
+                  {selectedRunway ? `${fmt(selectedRunway.lengthFt)} FT` : <TodoValue />}
                 </div>
               </div>
               <div className="metric">
-                <div className="lbl">VApp</div>
+                <div className="lbl">Width</div>
                 <div className="val mono" style={{ fontSize: 16 }}>
-                  <TodoValue />
+                  {selectedRunway ? `${fmt(selectedRunway.widthFt)} FT` : <TodoValue />}
                 </div>
               </div>
             </div>

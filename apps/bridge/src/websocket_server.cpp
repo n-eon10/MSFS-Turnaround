@@ -1,6 +1,7 @@
 #include "msfs_turnaround/websocket_server.hpp"
 
 #include <iostream>
+#include <utility>
 
 namespace msfs_turnaround {
 
@@ -39,6 +40,17 @@ bool WebSocketServer::start() {
                           << message->errorInfo.reason
                           << std::endl;
             }
+
+            if (message->type == ix::WebSocketMessageType::Message) {
+                if (clientMessageHandler_) {
+                    clientMessageHandler_(
+                        message->str,
+                        [&webSocket](const std::string& response) {
+                            webSocket.send(response);
+                        }
+                    );
+                }
+            }
         }
     );
 
@@ -74,6 +86,10 @@ void WebSocketServer::broadcast(const std::string& message) {
             client->send(message);
         }
     }
+}
+
+void WebSocketServer::setClientMessageHandler(ClientMessageHandler handler) {
+    clientMessageHandler_ = std::move(handler);
 }
 
 }
