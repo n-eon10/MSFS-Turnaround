@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useBridgeTelemetry } from "../hooks/useBridgeTelemetry";
 import type {
   AircraftTelemetry,
+  ApproachGuidance,
   BridgeConnectionStatus,
   LandingAnalysisPayload,
   NavAirport,
@@ -117,6 +118,7 @@ export type SimState = {
     runwayAirportIdent: string;
     runwayResults: NavRunwayEnd[];
     selectedRunway: NavRunwayEnd | null;
+    approachGuidance: ApproachGuidance | null;
     error: string | null;
   };
   todos: string[];
@@ -184,7 +186,7 @@ const UNKNOWN_RUNWAY: Runway = {
 const TODOS = [
   "Backend does not publish aircraft identity/performance data yet.",
   "Backend does not publish flight plan or official approach procedure data yet.",
-  "Backend does not publish localizer/glideslope deviation or runway-relative distance yet.",
+  "Backend does not publish official localizer/glideslope nav receiver data yet.",
   "Backend does not publish bridge PID, latency, or sim rate yet.",
   "Landing analysis does not calculate centerline, touchdown-zone distance, flare quality, or bounce yet.",
 ];
@@ -253,6 +255,7 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
     runwayAirportIdent,
     runwayResults,
     selectedRunway,
+    approachGuidance,
     navdataError,
     searchAirports,
     requestRunways,
@@ -332,8 +335,8 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
       altAGL: telemetry ? numberOrNull(telemetry.altitudeAboveGroundFt) : null,
       vs: telemetry ? numberOrNull(telemetry.verticalSpeedFpm) : null,
       heading: telemetry ? numberOrNull(telemetry.headingDeg) : null,
-      headingTarget: null,
-      hdgErr: null,
+      headingTarget: approachGuidance?.runwayHeadingDeg ?? null,
+      hdgErr: approachGuidance?.courseErrorDeg ?? null,
       locDev: null,
       gsDev: null,
       flapsIdx,
@@ -342,7 +345,7 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
       pitchDeg: telemetry ? numberOrNull(telemetry.pitchDeg) : null,
       bankDeg: telemetry ? numberOrNull(telemetry.bankDeg) : null,
       gForce: telemetry ? numberOrNull(telemetry.gForce) : null,
-      distNm: null,
+      distNm: approachGuidance?.distanceNm ?? null,
       lat: telemetry ? numberOrNull(telemetry.latitudeDeg) : null,
       lon: telemetry ? numberOrNull(telemetry.longitudeDeg) : null,
       onApproachIas: false,
@@ -355,6 +358,7 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
         runwayAirportIdent,
         runwayResults,
         selectedRunway,
+        approachGuidance,
         error: navdataError,
       },
       todos: TODOS,

@@ -54,6 +54,23 @@ export type NavRunwayEnd = {
   closed: boolean;
 };
 
+export type ApproachGuidance = {
+  type: "approach.guidance";
+  airportIdent: string;
+  runwayIdent: string;
+  distanceNm: number;
+  bearingToThresholdDeg: number;
+  runwayHeadingDeg: number;
+  courseErrorDeg: number;
+  lateralDeviationM: number;
+  alongTrackDistanceNm: number;
+  glidepathDeg: number;
+  glidepathTargetAltitudeFt: number;
+  glidepathDeviationFt: number;
+  stable: boolean;
+  issues: string[];
+};
+
 export type BridgeMessage =
   | {
       type: "aircraft.telemetry";
@@ -82,6 +99,7 @@ export type BridgeMessage =
       runwayIdent: string;
       error?: string;
     }
+  | ApproachGuidance
   | {
       type: string;
       payload?: unknown;

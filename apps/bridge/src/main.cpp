@@ -2,6 +2,7 @@
 #include "msfs_turnaround/websocket_server.hpp"
 
 #include "msfs_turnaround/landing_analysis.hpp"
+#include "approach/ApproachGuidance.hpp"
 #include "navdata/NavDatabase.hpp"
 
 #include <ixwebsocket/IXNetSystem.h>
@@ -55,6 +56,29 @@ std::string landingAnalysisToJson(const msfs_turnaround::LandingAnalysis& analys
             {"touchdownGForce", analysis.touchdownGForce},
             {"score", analysis.score}
         }}
+    };
+
+    return message.dump();
+}
+
+std::string approachGuidanceToJson(
+    const msfs_turnaround::ApproachGuidanceResult& guidance
+) {
+    nlohmann::json message = {
+        {"type", "approach.guidance"},
+        {"airportIdent", guidance.airportIdent},
+        {"runwayIdent", guidance.runwayIdent},
+        {"distanceNm", guidance.distanceNm},
+        {"bearingToThresholdDeg", guidance.bearingToThresholdDeg},
+        {"runwayHeadingDeg", guidance.runwayHeadingDeg},
+        {"courseErrorDeg", guidance.courseErrorDeg},
+        {"lateralDeviationM", guidance.lateralDeviationM},
+        {"alongTrackDistanceNm", guidance.alongTrackDistanceNm},
+        {"glidepathDeg", guidance.glidepathDeg},
+        {"glidepathTargetAltitudeFt", guidance.glidepathTargetAltitudeFt},
+        {"glidepathDeviationFt", guidance.glidepathDeviationFt},
+        {"stable", guidance.stable},
+        {"issues", guidance.issues}
     };
 
     return message.dump();
@@ -281,8 +305,28 @@ int main(int argc, char** argv) {
     msfs_turnaround::LandingDetector landingDetector;
 
     simConnectClient.setTelemetryCallback(
-        [&webSocketServer, &landingDetector](const msfs_turnaround::AircraftTelemetry& telemetry) {
+        [
+            &webSocketServer,
+            &landingDetector,
+            &activeRunwayMutex,
+            &activeRunway
+        ](const msfs_turnaround::AircraftTelemetry& telemetry) {
             webSocketServer.broadcast(telemetryToJson(telemetry));
+
+            std::optional<msfs_turnaround::RunwayEnd> runwayForGuidance;
+            {
+                std::lock_guard<std::mutex> lock(activeRunwayMutex);
+                runwayForGuidance = activeRunway;
+            }
+
+            if (runwayForGuidance) {
+                const auto guidance =
+                    msfs_turnaround::computeApproachGuidance(
+                        telemetry,
+                        *runwayForGuidance
+                    );
+                webSocketServer.broadcast(approachGuidanceToJson(guidance));
+            }
 
             if (landingDetector.update(telemetry)) {
                 const auto& analysis = landingDetector.latestLanding();

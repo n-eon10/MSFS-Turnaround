@@ -22,8 +22,20 @@ function todoMetric(label: string, note: string) {
   );
 }
 
+function lateralLabel(valueM: number): string {
+  if (Math.abs(valueM) < 1) return "ON CENTRELINE";
+  return `${fmt(Math.abs(valueM))} M ${valueM > 0 ? "RIGHT" : "LEFT"}`;
+}
+
+function glidepathLabel(valueFt: number): string {
+  if (Math.abs(valueFt) < 1) return "ON PATH";
+  return `${fmt(Math.abs(valueFt))} FT ${valueFt > 0 ? "HIGH" : "LOW"}`;
+}
+
 export function LiveMonitor({ sim }: { sim: UseSimResult }) {
   const s = sim.state;
+  const guidance = s.navdata.approachGuidance;
+  const selectedRunway = s.navdata.selectedRunway;
   const telemetryKind = s.hasTelemetry ? "good" : "warn";
   const vsClass =
     s.vs === null ? "" : s.vs < -1100 ? "bad" : s.vs < -900 ? "warn" : "";
@@ -102,9 +114,14 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
             <div className="metric sm">
               <div className="lbl">Runway distance</div>
               <div className="val">
-                <TodoValue />
+                {guidance ? fmt(guidance.distanceNm, 1) : <TodoValue label="NONE" />}
+                {guidance && <span className="unit">NM</span>}
               </div>
-              <div className="sub">TODO: runway/navdata required</div>
+              <div className="sub">
+                {selectedRunway
+                  ? `${selectedRunway.airportIdent}/${selectedRunway.runwayIdent}`
+                  : "No runway selected"}
+              </div>
             </div>
           </div>
         </div>
@@ -122,7 +139,9 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                 {padHdg(s.heading)}
                 <span className="unit">DEG</span>
               </div>
-              <div className="sub">TODO: runway course target</div>
+              <div className="sub">
+                RWY {guidance ? padHdg(guidance.runwayHeadingDeg) : "---"} DEG
+              </div>
             </div>
             <div className="metric">
               <div className="lbl">Pitch</div>
@@ -162,31 +181,131 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
       <div className="row" style={{ gap: 14 }}>
         <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
-            <span className="lbl">APPROACH DEVIATIONS</span>
-            <StatusPill kind="warn">TODO</StatusPill>
+            <span className="lbl">APPROACH GUIDANCE</span>
+            {guidance ? (
+              <StatusPill kind={guidance.stable ? "good" : "warn"}>
+                {guidance.stable ? "STABLE" : "UNSTABLE"}
+              </StatusPill>
+            ) : (
+              <StatusPill kind="warn">NO GUIDANCE</StatusPill>
+            )}
           </div>
-          <div className="card-body grid-3" style={{ gap: 22 }}>
-            {todoMetric("Localizer", "TODO: NAV CDI/localizer SimConnect data")}
-            {todoMetric("Glideslope", "TODO: NAV GSI/glideslope SimConnect data")}
-            {todoMetric("Heading target", "TODO: active runway/procedure course")}
+          <div className="card-body grid-4" style={{ gap: 22 }}>
+            <div className="metric sm">
+              <div className="lbl">Selected runway</div>
+              <div className="val">
+                {guidance
+                  ? `${guidance.airportIdent} ${guidance.runwayIdent}`
+                  : selectedRunway
+                    ? `${selectedRunway.airportIdent} ${selectedRunway.runwayIdent}`
+                    : <TodoValue label="NONE" />}
+              </div>
+            </div>
+            <div className="metric sm">
+              <div className="lbl">Bearing to threshold</div>
+              <div className="val">
+                {guidance ? fmt(guidance.bearingToThresholdDeg, 1) : "-"}
+                {guidance && <span className="unit">DEG</span>}
+              </div>
+            </div>
+            <div className="metric sm">
+              <div className="lbl">Runway heading</div>
+              <div className="val">
+                {guidance ? fmt(guidance.runwayHeadingDeg, 1) : "-"}
+                {guidance && <span className="unit">DEG</span>}
+              </div>
+            </div>
+            <div className="metric sm">
+              <div className="lbl">Course error</div>
+              <div
+                className={`val ${
+                  guidance && Math.abs(guidance.courseErrorDeg) > 10 ? "warn" : ""
+                }`}
+              >
+                {guidance ? `${sign(guidance.courseErrorDeg)}${fmt(guidance.courseErrorDeg, 1)}` : "-"}
+                {guidance && <span className="unit">DEG</span>}
+              </div>
+            </div>
+            <div className="metric sm">
+              <div className="lbl">Centreline</div>
+              <div
+                className={`val ${
+                  guidance && Math.abs(guidance.lateralDeviationM) > 300
+                    ? "warn"
+                    : ""
+                }`}
+              >
+                {guidance ? lateralLabel(guidance.lateralDeviationM) : "-"}
+              </div>
+              <div className="sub">Positive is right inbound</div>
+            </div>
+            <div className="metric sm">
+              <div className="lbl">Along-track</div>
+              <div className="val">
+                {guidance ? fmt(guidance.alongTrackDistanceNm, 1) : "-"}
+                {guidance && <span className="unit">NM</span>}
+              </div>
+            </div>
+            <div className="metric sm">
+              <div className="lbl">Glide target</div>
+              <div className="val">
+                {guidance ? fmt(guidance.glidepathTargetAltitudeFt) : "-"}
+                {guidance && <span className="unit">FT</span>}
+              </div>
+              <div className="sub">
+                {guidance ? `${fmt(guidance.glidepathDeg, 1)} DEG path` : ""}
+              </div>
+            </div>
+            <div className="metric sm">
+              <div className="lbl">Glide deviation</div>
+              <div
+                className={`val ${
+                  guidance && Math.abs(guidance.glidepathDeviationFt) > 300
+                    ? "warn"
+                    : ""
+                }`}
+              >
+                {guidance ? glidepathLabel(guidance.glidepathDeviationFt) : "-"}
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
             <span className="lbl">STABILITY GATES</span>
-            <StatusPill kind="warn">PARTIAL</StatusPill>
+            {guidance ? (
+              <StatusPill kind={guidance.stable ? "good" : "bad"}>
+                {guidance.stable ? "STABLE" : "ISSUES"}
+              </StatusPill>
+            ) : (
+              <StatusPill kind="warn">WAITING</StatusPill>
+            )}
           </div>
           <div
             className="card-body"
             style={{ display: "flex", flexDirection: "column", gap: 10 }}
           >
-            <div className="todo-note">
-              Live vertical speed, gear, flaps, altitude, attitude, and G-force
-              are connected. TODO: stable-approach scoring needs VApp,
-              runway-relative distance, localizer/glideslope deviation, and
-              configured landing flap target from backend data.
-            </div>
+            {guidance ? (
+              guidance.issues.length > 0 ? (
+                guidance.issues.map((issue) => (
+                  <div key={issue} className="check active">
+                    <div className="box"></div>
+                    <div className="lbl">{issue}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="check done">
+                  <div className="box"></div>
+                  <div className="lbl">No active guidance issues</div>
+                </div>
+              )
+            ) : (
+              <div className="todo-note">
+                Select a runway and wait for live telemetry to receive runway-based
+                approach guidance from the bridge.
+              </div>
+            )}
           </div>
         </div>
       </div>

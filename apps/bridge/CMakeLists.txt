@@ -12,6 +12,8 @@ add_executable(msfs_turnaround_bridge
     src/websocket_server.cpp
     src/landing_analysis.cpp
     src/navdata/NavDatabase.cpp
+    src/approach/Geo.cpp
+    src/approach/ApproachGuidance.cpp
 )
 
 target_compile_definitions(msfs_turnaround_bridge PRIVATE

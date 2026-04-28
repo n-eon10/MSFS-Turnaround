@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   AircraftTelemetry,
+  ApproachGuidance,
   BridgeConnectionStatus,
   BridgeMessage,
   LandingAnalysisPayload,
@@ -23,6 +24,8 @@ export function useBridgeTelemetry() {
   const [runwayAirportIdent, setRunwayAirportIdent] = useState("");
   const [runwayResults, setRunwayResults] = useState<NavRunwayEnd[]>([]);
   const [selectedRunway, setSelectedRunway] = useState<NavRunwayEnd | null>(null);
+  const [approachGuidance, setApproachGuidance] =
+    useState<ApproachGuidance | null>(null);
   const [navdataError, setNavdataError] = useState<string | null>(null);
   const [lastMessageAt, setLastMessageAt] = useState<Date | null>(null);
   const pendingSelectedRunwayRef = useRef<NavRunwayEnd | null>(null);
@@ -91,10 +94,15 @@ export function useBridgeTelemetry() {
 
             if (result.ok) {
               setSelectedRunway(pendingSelectedRunwayRef.current);
+              setApproachGuidance(null);
               setNavdataError(null);
             } else {
               setNavdataError(result.error ?? "Runway selection failed");
             }
+          }
+
+          if (message.type === "approach.guidance") {
+            setApproachGuidance(message as ApproachGuidance);
           }
         } catch {
           // Ignore malformed bridge messages for now.
@@ -181,6 +189,7 @@ export function useBridgeTelemetry() {
   const selectRunway = useCallback(
     (runway: NavRunwayEnd) => {
       pendingSelectedRunwayRef.current = runway;
+      setApproachGuidance(null);
       setNavdataError(null);
 
       sendBridgeMessage({
@@ -201,6 +210,7 @@ export function useBridgeTelemetry() {
     runwayAirportIdent,
     runwayResults,
     selectedRunway,
+    approachGuidance,
     navdataError,
     searchAirports,
     requestRunways,

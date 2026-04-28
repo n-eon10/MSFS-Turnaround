@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 import { useSim, type Phase } from "./sim/useSim";
@@ -55,6 +55,7 @@ function bridgeStatusLabel(status: string): string {
 function App() {
   const [page, setPage] = useState<AppPage>("dashboard");
   const [clock, setClock] = useState(utcNow());
+  const autoRoutedReportRef = useRef<unknown>(null);
 
   const sim = useSim();
 
@@ -69,11 +70,16 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (sim.state.phase === "landed" && sim.state.report && page === "monitor") {
-      const id = setTimeout(() => setPage("analysis"), 600);
-      return () => clearTimeout(id);
+    const report = sim.state.report;
+    if (sim.state.phase !== "landed" || !report) {
+      autoRoutedReportRef.current = null;
+      return;
     }
-  }, [sim.state.phase, sim.state.report, page]);
+    if (autoRoutedReportRef.current === report) return;
+    autoRoutedReportRef.current = report;
+    const id = setTimeout(() => setPage("analysis"), 600);
+    return () => clearTimeout(id);
+  }, [sim.state.phase, sim.state.report]);
 
   const s = sim.state;
   const pt = PAGE_TITLES[page];
