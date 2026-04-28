@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/Users/itsaf/Documents/GitHub/MSFS-Turnaround/apps/bridge"
+    "cmake.sourceDirectory": "C:/Users/itsaf/Documents/GitHub/MSFS-Turnaround/apps/bridge",
+    "C_Cpp.errorSquiggles": "enabled"
 }

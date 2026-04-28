@@ -7,6 +7,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(msfs_turnaround_bridge
     src/main.cpp
+    src/simconnect_client.cpp
+)
+
+target_include_directories(msfs_turnaround_bridge PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${SIMCONNECT_INCLUDE_DIR}"
 )
 
 # ------------------------------------------------------------
