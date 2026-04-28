@@ -1,27 +1,75 @@
 #include "msfs_turnaround/simconnect_client.hpp"
+#include "msfs_turnaround/websocket_server.hpp"
+
+#include <ixwebsocket/IXNetSystem.h>
+#include <nlohmann/json.hpp>
 
 #include <chrono>
 #include <iostream>
 #include <thread>
 
+namespace {
+
+std::string telemetryToJson(const msfs_turnaround::AircraftTelemetry& telemetry) {
+    nlohmann::json message = {
+        {"type", "aircraft.telemetry"},
+        {"payload", {
+            {"latitudeDeg", telemetry.latitudeDeg},
+            {"longitudeDeg", telemetry.longitudeDeg},
+            {"altitudeFt", telemetry.altitudeFt},
+            {"indicatedAirspeedKt", telemetry.indicatedAirspeedKt},
+            {"verticalSpeedFpm", telemetry.verticalSpeedFpm},
+            {"headingDeg", telemetry.headingDeg},
+            {"gearHandlePosition", telemetry.gearHandlePosition},
+            {"flapsHandleIndex", telemetry.flapsHandleIndex},
+            {"simOnGround", telemetry.simOnGround}
+        }}
+    };
+
+    return message.dump();
+}
+
+}
+
 int main() {
     std::cout << "MSFS Turnaround Bridge starting..." << std::endl;
 
-    msfs_turnaround::SimConnectClient client;
+    ix::initNetSystem();
 
-    if (!client.connect()) {
+    msfs_turnaround::WebSocketServer webSocketServer(48787);
+
+    if (!webSocketServer.start()) {
+        ix::uninitNetSystem();
         return 1;
     }
 
-    client.requestAircraftTelemetry();
+    msfs_turnaround::SimConnectClient simConnectClient;
 
-    std::cout << "Streaming telemetry. Press Ctrl+C to stop." << std::endl;
+    if (!simConnectClient.connect()) {
+        webSocketServer.stop();
+        ix::uninitNetSystem();
+        return 1;
+    }
+
+    simConnectClient.setTelemetryCallback(
+        [&webSocketServer](const msfs_turnaround::AircraftTelemetry& telemetry) {
+            webSocketServer.broadcast(telemetryToJson(telemetry));
+        }
+    );
+
+    simConnectClient.requestAircraftTelemetry();
+
+    std::cout << "Streaming telemetry to WebSocket clients." << std::endl;
+    std::cout << "Endpoint: ws://localhost:48787" << std::endl;
 
     while (true) {
-        client.poll();
+        simConnectClient.poll();
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
-    client.close();
+    simConnectClient.close();
+    webSocketServer.stop();
+    ix::uninitNetSystem();
+
     return 0;
 }

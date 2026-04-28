@@ -4,15 +4,17 @@ project(msfs_turnaround_bridge LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(msfs_turnaround_bridge
     src/main.cpp
     src/simconnect_client.cpp
+    src/websocket_server.cpp
 )
 
-target_include_directories(msfs_turnaround_bridge PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/include"
-    "${SIMCONNECT_INCLUDE_DIR}"
+target_compile_definitions(msfs_turnaround_bridge PRIVATE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
 )
 
 # ------------------------------------------------------------
@@ -22,7 +24,7 @@ target_include_directories(msfs_turnaround_bridge PRIVATE
 set(MSFS_SDK_DIR "" CACHE PATH "Path to the Microsoft Flight Simulator SDK root directory")
 
 # Allow environment variable fallback:
-#   $env:MSFS_SDK_DIR="C:\MSFS SDK"
+#   PowerShell: $env:MSFS_SDK_DIR="C:/MSFS SDK"
 if (NOT MSFS_SDK_DIR AND DEFINED ENV{MSFS_SDK_DIR})
     set(MSFS_SDK_DIR "$ENV{MSFS_SDK_DIR}" CACHE PATH "Path to the Microsoft Flight Simulator SDK root directory" FORCE)
 endif()
@@ -61,10 +63,6 @@ endif()
 
 set(SIMCONNECT_INCLUDE_DIR "${MSFS_SDK_DIR}/SimConnect SDK/include")
 set(SIMCONNECT_LIB_DIR "${MSFS_SDK_DIR}/SimConnect SDK/lib")
-set(SIMCONNECT_DLL_CANDIDATES
-    "${MSFS_SDK_DIR}/SimConnect SDK/lib/SimConnect.dll"
-    "${MSFS_SDK_DIR}/SimConnect SDK/lib/managed/SimConnect.dll"
-)
 
 if (NOT EXISTS "${SIMCONNECT_INCLUDE_DIR}/SimConnect.h")
     message(FATAL_ERROR "SimConnect.h not found at: ${SIMCONNECT_INCLUDE_DIR}")
@@ -76,9 +74,25 @@ endif()
 
 message(STATUS "Using MSFS SDK: ${MSFS_SDK_DIR}")
 
+# ------------------------------------------------------------
+# Dependencies
+# ------------------------------------------------------------
+
+find_package(ixwebsocket CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+
+# ------------------------------------------------------------
+# Includes
+# ------------------------------------------------------------
+
 target_include_directories(msfs_turnaround_bridge PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${SIMCONNECT_INCLUDE_DIR}"
 )
+
+# ------------------------------------------------------------
+# Linking
+# ------------------------------------------------------------
 
 target_link_directories(msfs_turnaround_bridge PRIVATE
     "${SIMCONNECT_LIB_DIR}"
@@ -86,9 +100,23 @@ target_link_directories(msfs_turnaround_bridge PRIVATE
 
 target_link_libraries(msfs_turnaround_bridge PRIVATE
     SimConnect
+    ixwebsocket::ixwebsocket
+    nlohmann_json::nlohmann_json
+    bcrypt
 )
 
-# Copy SimConnect.dll beside the executable if CMake can find it.
+# ------------------------------------------------------------
+# Runtime DLL handling
+# ------------------------------------------------------------
+
+set(SIMCONNECT_DLL_CANDIDATES
+    "${MSFS_SDK_DIR}/SimConnect SDK/lib/SimConnect.dll"
+    "${MSFS_SDK_DIR}/SimConnect SDK/LegacyInterfaces/FSX-SP2-XPACK/SimConnect.dll"
+    "${MSFS_SDK_DIR}/SimConnect SDK/LegacyInterfaces/FSX-RTM/SimConnect.dll"
+)
+
+set(SIMCONNECT_DLL_FOUND FALSE)
+
 foreach(simconnect_dll IN LISTS SIMCONNECT_DLL_CANDIDATES)
     if (EXISTS "${simconnect_dll}")
         add_custom_command(TARGET msfs_turnaround_bridge POST_BUILD
@@ -96,7 +124,33 @@ foreach(simconnect_dll IN LISTS SIMCONNECT_DLL_CANDIDATES)
                 "${simconnect_dll}"
                 "$<TARGET_FILE_DIR:msfs_turnaround_bridge>"
         )
+
         message(STATUS "Will copy SimConnect.dll from: ${simconnect_dll}")
+        set(SIMCONNECT_DLL_FOUND TRUE)
         break()
     endif()
 endforeach()
+
+if (NOT SIMCONNECT_DLL_FOUND)
+    message(WARNING
+        "SimConnect.dll was not found in the SDK. "
+        "The bridge may still run if SimConnect.dll is available system-wide."
+    )
+endif()
+
+# ------------------------------------------------------------
+# MSVC warnings
+# ------------------------------------------------------------
+
+if (MSVC)
+    target_compile_options(msfs_turnaround_bridge PRIVATE
+        /W4
+        /permissive-
+    )
+else()
+    target_compile_options(msfs_turnaround_bridge PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+    )
+endif()

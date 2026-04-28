@@ -1,4 +1,5 @@
 #include "msfs_turnaround/simconnect_client.hpp"
+#include <utility>
 
 #include <iostream>
 
@@ -146,6 +147,10 @@ void SimConnectClient::handleDispatch(SIMCONNECT_RECV* data) {
 void SimConnectClient::handleAircraftTelemetry(const SIMCONNECT_RECV_SIMOBJECT_DATA* objectData) {
     const auto* telemetry = reinterpret_cast<const AircraftTelemetry*>(&objectData->dwData);
 
+    if (telemetryCallback_) {
+        telemetryCallback_(*telemetry);
+    }
+
     std::cout
         << "LAT=" << telemetry->latitudeDeg
         << " LON=" << telemetry->longitudeDeg
@@ -157,6 +162,10 @@ void SimConnectClient::handleAircraftTelemetry(const SIMCONNECT_RECV_SIMOBJECT_D
         << " FLAPS=" << telemetry->flapsHandleIndex
         << " ON_GROUND=" << telemetry->simOnGround
         << std::endl;
+}
+
+void SimConnectClient::setTelemetryCallback(TelemetryCallback callback) {
+    telemetryCallback_ = std::move(callback);
 }
 
 }
