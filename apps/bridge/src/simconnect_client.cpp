@@ -1,9 +1,28 @@
 #include "msfs_turnaround/simconnect_client.hpp"
 #include <utility>
 
+#include <cmath>
 #include <iostream>
 
 namespace msfs_turnaround {
+namespace {
+
+constexpr double RadiansToDegrees = 180.0 / 3.14159265358979323846;
+
+double normalizeDegrees(double degrees) {
+    double normalized = std::fmod(degrees, 360.0);
+    if (normalized < 0.0) {
+        normalized += 360.0;
+    }
+
+    return normalized;
+}
+
+double radiansToDegrees(double radians) {
+    return radians * RadiansToDegrees;
+}
+
+}
 
 bool SimConnectClient::connect() {
     HRESULT result = SimConnect_Open(
@@ -65,7 +84,7 @@ void SimConnectClient::requestAircraftTelemetry() {
         simConnect_,
         static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
         "PLANE HEADING DEGREES TRUE",
-        "degrees"
+        "radians"
     );
 
     SimConnect_AddToDataDefinition(
@@ -99,7 +118,7 @@ void SimConnectClient::requestAircraftTelemetry() {
     SimConnect_AddToDataDefinition(
         simConnect_,
         static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
-        "PLANE ALT ABOVE GROUND",
+        "PLANE ALT ABOVE GROUND MINUS CG",
         "feet"
     );
 
@@ -107,14 +126,14 @@ void SimConnectClient::requestAircraftTelemetry() {
         simConnect_,
         static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
         "PLANE PITCH DEGREES",
-        "degrees"
+        "radians"
     );
 
     SimConnect_AddToDataDefinition(
         simConnect_,
         static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
         "PLANE BANK DEGREES",
-        "degrees"
+        "radians"
     );
 
     SimConnect_AddToDataDefinition(
@@ -124,13 +143,58 @@ void SimConnectClient::requestAircraftTelemetry() {
         "GForce"
     );
 
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "PLANE TOUCHDOWN NORMAL VELOCITY",
+        "feet per second"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "PLANE TOUCHDOWN PITCH DEGREES",
+        "degrees"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "PLANE TOUCHDOWN BANK DEGREES",
+        "degrees"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "PLANE TOUCHDOWN HEADING DEGREES TRUE",
+        "degrees"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "PLANE TOUCHDOWN LATITUDE",
+        "degrees"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "PLANE TOUCHDOWN LONGITUDE",
+        "degrees"
+    );
+
     SimConnect_RequestDataOnSimObject(
         simConnect_,
         static_cast<DWORD>(DataRequestId::AircraftTelemetry),
         static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
         SIMCONNECT_OBJECT_ID_USER,
-        SIMCONNECT_PERIOD_SECOND,
-        SIMCONNECT_DATA_REQUEST_FLAG_CHANGED
+        SIMCONNECT_PERIOD_SIM_FRAME,
+        SIMCONNECT_DATA_REQUEST_FLAG_DEFAULT,
+        0,
+        3,
+        0
     );
 }
 
@@ -180,27 +244,37 @@ void SimConnectClient::handleDispatch(SIMCONNECT_RECV* data) {
 }
 
 void SimConnectClient::handleAircraftTelemetry(const SIMCONNECT_RECV_SIMOBJECT_DATA* objectData) {
-    const auto* telemetry = reinterpret_cast<const AircraftTelemetry*>(&objectData->dwData);
+    const auto* rawTelemetry = reinterpret_cast<const AircraftTelemetry*>(&objectData->dwData);
+    AircraftTelemetry telemetry = *rawTelemetry;
+    telemetry.headingDeg = normalizeDegrees(radiansToDegrees(rawTelemetry->headingDeg));
+    telemetry.pitchDeg = radiansToDegrees(rawTelemetry->pitchDeg);
+    telemetry.bankDeg = radiansToDegrees(rawTelemetry->bankDeg);
 
     if (telemetryCallback_) {
-        telemetryCallback_(*telemetry);
+        telemetryCallback_(telemetry);
+    }
+
+    static int logCounter = 0;
+    ++logCounter;
+    if (logCounter % 100 != 0) {
+        return;
     }
 
     std::cout
-        << "LAT=" << telemetry->latitudeDeg
-        << " LON=" << telemetry->longitudeDeg
-        << " ALT_FT=" << telemetry->altitudeFt
-        << " IAS_KT=" << telemetry->indicatedAirspeedKt
-        << " VS_FPM=" << telemetry->verticalSpeedFpm
-        << " HDG_DEG=" << telemetry->headingDeg
-        << " GEAR=" << telemetry->gearHandlePosition
-        << " FLAPS=" << telemetry->flapsHandleIndex
-        << " ON_GROUND=" << telemetry->simOnGround
-        << " GS_KT=" << telemetry->groundSpeedKt
-        << " AGL_FT=" << telemetry->altitudeAboveGroundFt
-        << " PITCH_DEG=" << telemetry->pitchDeg
-        << " BANK_DEG=" << telemetry->bankDeg
-        << " G=" << telemetry->gForce
+        << "LAT=" << telemetry.latitudeDeg
+        << " LON=" << telemetry.longitudeDeg
+        << " ALT_FT=" << telemetry.altitudeFt
+        << " IAS_KT=" << telemetry.indicatedAirspeedKt
+        << " VS_FPM=" << telemetry.verticalSpeedFpm
+        << " HDG_DEG=" << telemetry.headingDeg
+        << " GEAR=" << telemetry.gearHandlePosition
+        << " FLAPS=" << telemetry.flapsHandleIndex
+        << " ON_GROUND=" << telemetry.simOnGround
+        << " GS_KT=" << telemetry.groundSpeedKt
+        << " AGL_FT=" << telemetry.altitudeAboveGroundFt
+        << " PITCH_DEG=" << telemetry.pitchDeg
+        << " BANK_DEG=" << telemetry.bankDeg
+        << " G=" << telemetry.gForce
         << std::endl;
 }
 

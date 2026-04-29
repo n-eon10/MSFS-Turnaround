@@ -17,6 +17,12 @@ struct AircraftTelemetry {
     double pitchDeg;
     double bankDeg;
     double gForce;
+    double touchdownNormalVelocityFps;
+    double touchdownPitchDeg;
+    double touchdownBankDeg;
+    double touchdownHeadingDeg;
+    double touchdownLatitudeDeg;
+    double touchdownLongitudeDeg;
 };
 
 }

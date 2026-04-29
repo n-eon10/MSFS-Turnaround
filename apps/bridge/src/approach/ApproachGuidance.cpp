@@ -2,6 +2,7 @@
 
 #include "approach/Geo.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace msfs_turnaround {
@@ -106,13 +107,13 @@ ApproachGuidanceResult computeApproachGuidance(
         return result;
     }
 
-    result.distanceNm = geo::haversineDistanceNm(
+    result.distanceNm = geo::ellipsoidDistanceNm(
         telemetry.latitudeDeg,
         telemetry.longitudeDeg,
         runwayEnd.latitudeDeg,
         runwayEnd.longitudeDeg
     );
-    result.bearingToThresholdDeg = geo::initialBearingDeg(
+    result.bearingToThresholdDeg = geo::ellipsoidInitialBearingDeg(
         telemetry.latitudeDeg,
         telemetry.longitudeDeg,
         runwayEnd.latitudeDeg,
@@ -151,8 +152,9 @@ ApproachGuidanceResult computeApproachGuidance(
         aircraftOffset.eastM * rightUnitEast +
         aircraftOffset.northM * rightUnitNorth;
 
+    const double glidepathDistanceNm = std::max(0.0, result.alongTrackDistanceNm);
     const double heightAboveThresholdFt =
-        result.distanceNm *
+        glidepathDistanceNm *
         FeetPerNauticalMile *
         std::tan(geo::degToRad(GlidepathDeg));
     result.glidepathTargetAltitudeFt =

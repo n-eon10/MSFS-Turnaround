@@ -23,7 +23,25 @@ double haversineDistanceNm(
     double lat2Deg,
     double lon2Deg
 );
+double ellipsoidDistanceMeters(
+    double lat1Deg,
+    double lon1Deg,
+    double lat2Deg,
+    double lon2Deg
+);
+double ellipsoidDistanceNm(
+    double lat1Deg,
+    double lon1Deg,
+    double lat2Deg,
+    double lon2Deg
+);
 double initialBearingDeg(
+    double fromLatDeg,
+    double fromLonDeg,
+    double toLatDeg,
+    double toLonDeg
+);
+double ellipsoidInitialBearingDeg(
     double fromLatDeg,
     double fromLonDeg,
     double toLatDeg,

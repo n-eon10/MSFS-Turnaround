@@ -7,8 +7,155 @@ namespace msfs_turnaround::geo {
 namespace {
 
 constexpr double EarthRadiusMeters = 6371000.0;
+constexpr double Wgs84SemiMajorAxisM = 6378137.0;
+constexpr double Wgs84Flattening = 1.0 / 298.257223563;
+constexpr double Wgs84SemiMinorAxisM =
+    Wgs84SemiMajorAxisM * (1.0 - Wgs84Flattening);
+constexpr double Wgs84EccentricitySquared =
+    Wgs84Flattening * (2.0 - Wgs84Flattening);
 constexpr double MetersPerNauticalMile = 1852.0;
 constexpr double Pi = 3.14159265358979323846;
+constexpr int VincentyMaxIterations = 50;
+constexpr double VincentyTolerance = 1e-12;
+
+struct InverseGeodesicResult {
+    double distanceMeters = 0.0;
+    double initialBearingDeg = 0.0;
+};
+
+bool vincentyInverse(
+    double lat1Deg,
+    double lon1Deg,
+    double lat2Deg,
+    double lon2Deg,
+    InverseGeodesicResult& result
+) {
+    if (lat1Deg == lat2Deg && lon1Deg == lon2Deg) {
+        result.distanceMeters = 0.0;
+        result.initialBearingDeg = 0.0;
+        return true;
+    }
+
+    const double phi1 = degToRad(lat1Deg);
+    const double phi2 = degToRad(lat2Deg);
+    const double longitudeDifference = degToRad(lon2Deg - lon1Deg);
+    const double reducedLat1 =
+        std::atan((1.0 - Wgs84Flattening) * std::tan(phi1));
+    const double reducedLat2 =
+        std::atan((1.0 - Wgs84Flattening) * std::tan(phi2));
+    const double sinReducedLat1 = std::sin(reducedLat1);
+    const double cosReducedLat1 = std::cos(reducedLat1);
+    const double sinReducedLat2 = std::sin(reducedLat2);
+    const double cosReducedLat2 = std::cos(reducedLat2);
+
+    double lambda = longitudeDifference;
+    double lambdaPrevious = 0.0;
+    double sinSigma = 0.0;
+    double cosSigma = 0.0;
+    double sigma = 0.0;
+    double sinAlpha = 0.0;
+    double cosSqAlpha = 0.0;
+    double cos2SigmaM = 0.0;
+    bool converged = false;
+
+    for (int iteration = 0; iteration < VincentyMaxIterations; ++iteration) {
+        const double sinLambda = std::sin(lambda);
+        const double cosLambda = std::cos(lambda);
+        const double sinPart = cosReducedLat2 * sinLambda;
+        const double cosPart =
+            cosReducedLat1 * sinReducedLat2 -
+            sinReducedLat1 * cosReducedLat2 * cosLambda;
+        sinSigma = std::sqrt(sinPart * sinPart + cosPart * cosPart);
+
+        if (sinSigma == 0.0) {
+            result.distanceMeters = 0.0;
+            result.initialBearingDeg = 0.0;
+            return true;
+        }
+
+        cosSigma =
+            sinReducedLat1 * sinReducedLat2 +
+            cosReducedLat1 * cosReducedLat2 * cosLambda;
+        sigma = std::atan2(sinSigma, cosSigma);
+        sinAlpha =
+            cosReducedLat1 * cosReducedLat2 * sinLambda / sinSigma;
+        cosSqAlpha = 1.0 - sinAlpha * sinAlpha;
+        cos2SigmaM =
+            cosSqAlpha == 0.0
+                ? 0.0
+                : cosSigma -
+                      (2.0 * sinReducedLat1 * sinReducedLat2 / cosSqAlpha);
+
+        const double coefficient =
+            Wgs84Flattening /
+            16.0 *
+            cosSqAlpha *
+            (4.0 + Wgs84Flattening * (4.0 - 3.0 * cosSqAlpha));
+        lambdaPrevious = lambda;
+        lambda =
+            longitudeDifference +
+            (1.0 - coefficient) *
+                Wgs84Flattening *
+                sinAlpha *
+                (sigma +
+                 coefficient *
+                     sinSigma *
+                     (cos2SigmaM +
+                      coefficient *
+                          cosSigma *
+                          (-1.0 + 2.0 * cos2SigmaM * cos2SigmaM)));
+
+        if (std::abs(lambda - lambdaPrevious) < VincentyTolerance) {
+            converged = true;
+            break;
+        }
+    }
+
+    if (!converged) {
+        return false;
+    }
+
+    const double uSq =
+        cosSqAlpha *
+        (Wgs84SemiMajorAxisM * Wgs84SemiMajorAxisM -
+         Wgs84SemiMinorAxisM * Wgs84SemiMinorAxisM) /
+        (Wgs84SemiMinorAxisM * Wgs84SemiMinorAxisM);
+    const double coefficientA =
+        1.0 +
+        uSq /
+            16384.0 *
+            (4096.0 + uSq * (-768.0 + uSq * (320.0 - 175.0 * uSq)));
+    const double coefficientB =
+        uSq /
+        1024.0 *
+        (256.0 + uSq * (-128.0 + uSq * (74.0 - 47.0 * uSq)));
+    const double deltaSigma =
+        coefficientB *
+        sinSigma *
+        (cos2SigmaM +
+         coefficientB /
+             4.0 *
+             (cosSigma * (-1.0 + 2.0 * cos2SigmaM * cos2SigmaM) -
+              coefficientB /
+                  6.0 *
+                  cos2SigmaM *
+                  (-3.0 + 4.0 * sinSigma * sinSigma) *
+                  (-3.0 + 4.0 * cos2SigmaM * cos2SigmaM)));
+
+    result.distanceMeters =
+        Wgs84SemiMinorAxisM * coefficientA * (sigma - deltaSigma);
+
+    const double finalSinLambda = std::sin(lambda);
+    const double finalCosLambda = std::cos(lambda);
+    const double initialBearingRad =
+        std::atan2(
+            cosReducedLat2 * finalSinLambda,
+            cosReducedLat1 * sinReducedLat2 -
+                sinReducedLat1 * cosReducedLat2 * finalCosLambda
+        );
+    result.initialBearingDeg = normalizeHeadingDeg(radToDeg(initialBearingRad));
+    return true;
+}
 
 }
 
@@ -71,6 +218,30 @@ double haversineDistanceNm(
            MetersPerNauticalMile;
 }
 
+double ellipsoidDistanceMeters(
+    double lat1Deg,
+    double lon1Deg,
+    double lat2Deg,
+    double lon2Deg
+) {
+    InverseGeodesicResult result;
+    if (vincentyInverse(lat1Deg, lon1Deg, lat2Deg, lon2Deg, result)) {
+        return result.distanceMeters;
+    }
+
+    return haversineDistanceMeters(lat1Deg, lon1Deg, lat2Deg, lon2Deg);
+}
+
+double ellipsoidDistanceNm(
+    double lat1Deg,
+    double lon1Deg,
+    double lat2Deg,
+    double lon2Deg
+) {
+    return ellipsoidDistanceMeters(lat1Deg, lon1Deg, lat2Deg, lon2Deg) /
+           MetersPerNauticalMile;
+}
+
 double initialBearingDeg(
     double fromLatDeg,
     double fromLonDeg,
@@ -89,6 +260,20 @@ double initialBearingDeg(
     return normalizeHeadingDeg(radToDeg(std::atan2(y, x)));
 }
 
+double ellipsoidInitialBearingDeg(
+    double fromLatDeg,
+    double fromLonDeg,
+    double toLatDeg,
+    double toLonDeg
+) {
+    InverseGeodesicResult result;
+    if (vincentyInverse(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg, result)) {
+        return result.initialBearingDeg;
+    }
+
+    return initialBearingDeg(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg);
+}
+
 LocalOffset projectToLocalMeters(
     double referenceLatDeg,
     double referenceLonDeg,
@@ -96,10 +281,20 @@ LocalOffset projectToLocalMeters(
     double lonDeg
 ) {
     const double referenceLatRad = degToRad(referenceLatDeg);
-    const double northM = degToRad(latDeg - referenceLatDeg) * EarthRadiusMeters;
+    const double sinReferenceLat = std::sin(referenceLatRad);
+    const double radiusDenominator =
+        std::sqrt(1.0 - Wgs84EccentricitySquared * sinReferenceLat * sinReferenceLat);
+    const double meridianRadiusM =
+        Wgs84SemiMajorAxisM *
+        (1.0 - Wgs84EccentricitySquared) /
+        (radiusDenominator * radiusDenominator * radiusDenominator);
+    const double primeVerticalRadiusM =
+        Wgs84SemiMajorAxisM / radiusDenominator;
+
+    const double northM = degToRad(latDeg - referenceLatDeg) * meridianRadiusM;
     const double eastM =
         degToRad(lonDeg - referenceLonDeg) *
-        EarthRadiusMeters *
+        primeVerticalRadiusM *
         std::cos(referenceLatRad);
 
     return {northM, eastM};

@@ -23,7 +23,9 @@ public:
 
 private:
     bool hasSeenTelemetry_ = false;
+    bool hasPreviousTelemetry_ = false;
     double previousSimOnGround_ = 0.0;
+    AircraftTelemetry previousTelemetry_ {};
     LandingAnalysis latestLanding_;
 
     static double calculateScore(const LandingAnalysis& analysis);
