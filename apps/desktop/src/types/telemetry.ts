@@ -105,6 +105,38 @@ export type ApproachStabilityGate = {
   issues: string[];
 };
 
+export type SpawnFinalRequest = {
+  type: "scenario.spawn_final";
+  airportIdent?: string;
+  runwayIdent?: string;
+  distanceNm: number;
+  glidepathDeg: number;
+  airspeedKt: number;
+  gearDown: boolean;
+  flapsIndex: number;
+  pauseAfterSpawn?: boolean;
+};
+
+export type SpawnFinalResult = {
+  type: "scenario.spawn_final.result";
+  ok: boolean;
+  error?: string;
+  warnings?: string[];
+  airportIdent?: string;
+  runwayIdent?: string;
+  distanceNm?: number;
+  glidepathDeg?: number;
+  airspeedKt?: number;
+  spawnLatitudeDeg?: number;
+  spawnLongitudeDeg?: number;
+  spawnAltitudeFt?: number;
+  spawnHeadingDeg?: number;
+  gearRequested?: boolean;
+  flapsRequested?: boolean;
+  parkingBrakeRequested?: boolean;
+  pauseRequested?: boolean;
+};
+
 export type BridgeMessage =
   | {
       type: "aircraft.telemetry";
@@ -135,6 +167,7 @@ export type BridgeMessage =
     }
   | ApproachGuidance
   | ApproachStabilityGate
+  | SpawnFinalResult
   | {
       type: string;
       payload?: unknown;

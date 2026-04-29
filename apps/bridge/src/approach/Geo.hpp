@@ -7,10 +7,17 @@ struct LocalOffset {
     double eastM = 0.0;
 };
 
+struct GeoPoint {
+    double latitudeDeg = 0.0;
+    double longitudeDeg = 0.0;
+};
+
 double degToRad(double degrees);
 double radToDeg(double radians);
 double normalizeHeadingDeg(double headingDeg);
 double shortestAngleDifferenceDeg(double valueDeg, double referenceDeg);
+double nauticalMilesToMeters(double nauticalMiles);
+double nauticalMilesToFeet(double nauticalMiles);
 double haversineDistanceMeters(
     double lat1Deg,
     double lon1Deg,
@@ -52,6 +59,12 @@ LocalOffset projectToLocalMeters(
     double referenceLonDeg,
     double latDeg,
     double lonDeg
+);
+GeoPoint destinationPointDeg(
+    double startLatDeg,
+    double startLonDeg,
+    double bearingDeg,
+    double distanceM
 );
 
 }

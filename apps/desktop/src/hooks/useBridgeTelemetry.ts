@@ -8,6 +8,8 @@ import type {
   LandingAnalysisPayload,
   NavAirport,
   NavRunwayEnd,
+  SpawnFinalRequest,
+  SpawnFinalResult,
 } from "../types/telemetry";
 
 const BRIDGE_URL = "ws://localhost:48787";
@@ -32,6 +34,9 @@ export function useBridgeTelemetry() {
   const [stabilityGate500, setStabilityGate500] =
     useState<ApproachStabilityGate | null>(null);
   const [navdataError, setNavdataError] = useState<string | null>(null);
+  const [scenarioError, setScenarioError] = useState<string | null>(null);
+  const [lastSpawnResult, setLastSpawnResult] =
+    useState<SpawnFinalResult | null>(null);
   const [lastMessageAt, setLastMessageAt] = useState<Date | null>(null);
   const pendingSelectedRunwayRef = useRef<NavRunwayEnd | null>(null);
   const previousOnGroundRef = useRef<boolean | null>(null);
@@ -130,6 +135,18 @@ export function useBridgeTelemetry() {
               setStabilityGate500(gate);
             }
           }
+
+          if (message.type === "scenario.spawn_final.result") {
+            const result = message as SpawnFinalResult;
+            setLastSpawnResult(result);
+            setScenarioError(result.ok ? null : result.error ?? "Spawn failed");
+            if (result.ok) {
+              setApproachGuidance(null);
+              setStabilityGate1000(null);
+              setStabilityGate500(null);
+            }
+            setLastMessageAt(new Date());
+          }
         } catch {
           // Ignore malformed bridge messages for now.
         }
@@ -171,7 +188,6 @@ export function useBridgeTelemetry() {
   const sendBridgeMessage = useCallback((message: object) => {
     const socket = socketRef.current;
     if (socket === null || socket.readyState !== WebSocket.OPEN) {
-      setNavdataError("Bridge is not connected");
       return false;
     }
 
@@ -189,11 +205,13 @@ export function useBridgeTelemetry() {
         return;
       }
 
-      sendBridgeMessage({
+      if (!sendBridgeMessage({
         type: "navdata.search_airports",
         query,
         limit,
-      });
+      })) {
+        setNavdataError("Bridge is not connected");
+      }
     },
     [sendBridgeMessage]
   );
@@ -204,10 +222,12 @@ export function useBridgeTelemetry() {
       setRunwayResults([]);
       setNavdataError(null);
 
-      sendBridgeMessage({
+      if (!sendBridgeMessage({
         type: "navdata.get_runways",
         airportIdent,
-      });
+      })) {
+        setNavdataError("Bridge is not connected");
+      }
     },
     [sendBridgeMessage]
   );
@@ -220,11 +240,25 @@ export function useBridgeTelemetry() {
       setStabilityGate500(null);
       setNavdataError(null);
 
-      sendBridgeMessage({
+      if (!sendBridgeMessage({
         type: "approach.select_runway",
         airportIdent: runway.airportIdent,
         runwayIdent: runway.runwayIdent,
-      });
+      })) {
+        setNavdataError("Bridge is not connected");
+      }
+    },
+    [sendBridgeMessage]
+  );
+
+  const spawnFinal = useCallback(
+    (request: Omit<SpawnFinalRequest, "type">) => {
+      setScenarioError(null);
+      setLastSpawnResult(null);
+
+      if (!sendBridgeMessage({ type: "scenario.spawn_final", ...request })) {
+        setScenarioError("Bridge is not connected");
+      }
     },
     [sendBridgeMessage]
   );
@@ -242,9 +276,12 @@ export function useBridgeTelemetry() {
     stabilityGate1000,
     stabilityGate500,
     navdataError,
+    scenarioError,
+    lastSpawnResult,
     searchAirports,
     requestRunways,
     selectRunway,
+    spawnFinal,
     lastMessageAt,
     bridgeUrl: BRIDGE_URL,
   };

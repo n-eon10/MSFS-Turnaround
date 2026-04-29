@@ -17,6 +17,7 @@ constexpr double LateralDeviationLimitM = 300.0;
 constexpr double GlidepathDeviationLimitFt = 300.0;
 constexpr double BankLimitDeg = 15.0;
 constexpr double SinkRateLimitFpm = -1000.0;
+constexpr double GearDownAglFt = 1500.0;
 
 bool isValidCoordinate(double latitudeDeg, double longitudeDeg) {
     return std::isfinite(latitudeDeg) &&
@@ -49,10 +50,13 @@ void evaluateStability(
         );
     }
 
-    if (result.glidepathDeviationFt > GlidepathDeviationLimitFt) {
-        result.issues.push_back("High on glide path");
-    } else if (result.glidepathDeviationFt < -GlidepathDeviationLimitFt) {
-        result.issues.push_back("Low on glide path");
+    // Only meaningful when established on final inbound to the threshold.
+    if (result.alongTrackDistanceNm > 0.0) {
+        if (result.glidepathDeviationFt > GlidepathDeviationLimitFt) {
+            result.issues.push_back("High on glide path");
+        } else if (result.glidepathDeviationFt < -GlidepathDeviationLimitFt) {
+            result.issues.push_back("Low on glide path");
+        }
     }
 
     if (std::isfinite(telemetry.bankDeg) && std::abs(telemetry.bankDeg) > BankLimitDeg) {
@@ -66,9 +70,12 @@ void evaluateStability(
         result.issues.push_back("Excessive sink rate");
     }
 
+    // Gear is only expected down close to the runway.
     if (
         std::isfinite(telemetry.gearHandlePosition) &&
-        telemetry.gearHandlePosition < 0.5
+        telemetry.gearHandlePosition < 0.5 &&
+        std::isfinite(telemetry.altitudeAboveGroundFt) &&
+        telemetry.altitudeAboveGroundFt < GearDownAglFt
     ) {
         result.issues.push_back("Gear not down");
     }

@@ -5,16 +5,18 @@ import { useSim, type Phase } from "./sim/useSim";
 import { fmt, padHdg } from "./sim/format";
 import { Dashboard } from "./screens/Dashboard";
 import { ApproachSetup } from "./screens/ApproachSetup";
+import { ScenarioSetup } from "./screens/ScenarioSetup";
 import { LiveMonitor } from "./screens/LiveMonitor";
 import { LandingAnalysis } from "./screens/LandingAnalysis";
 
-export type AppPage = "dashboard" | "setup" | "monitor" | "analysis";
+export type AppPage = "dashboard" | "setup" | "scenario" | "monitor" | "analysis";
 
 const NAV: Array<{ id: AppPage; label: string; num: string }> = [
   { id: "dashboard", label: "Dashboard", num: "01" },
   { id: "setup", label: "Airport Setup", num: "02" },
-  { id: "monitor", label: "Live Monitor", num: "03" },
-  { id: "analysis", label: "Landing Analysis", num: "04" },
+  { id: "scenario", label: "Scenario Setup", num: "03" },
+  { id: "monitor", label: "Live Monitor", num: "04" },
+  { id: "analysis", label: "Landing Analysis", num: "05" },
 ];
 
 const PHASE_LABEL: Record<Phase, string> = {
@@ -27,6 +29,7 @@ const PHASE_LABEL: Record<Phase, string> = {
 const PAGE_TITLES: Record<AppPage, { h: string; crumb: string }> = {
   dashboard: { h: "Flight Dashboard", crumb: "BRIDGE / LIVE DATA" },
   setup: { h: "Airport / Runway Setup", crumb: "NAVDATA / LOCAL SQLITE" },
+  scenario: { h: "Scenario Setup", crumb: "SIMCONNECT / FINAL APPROACH" },
   monitor: { h: "Live Telemetry Monitor", crumb: "SIMCONNECT / WEBSOCKET" },
   analysis: { h: "Landing Analysis", crumb: "BRIDGE / TOUCHDOWN EVENT" },
 };
@@ -91,6 +94,8 @@ function App() {
         return <Dashboard sim={sim} />;
       case "setup":
         return <ApproachSetup sim={sim} />;
+      case "scenario":
+        return <ScenarioSetup sim={sim} />;
       case "monitor":
         return <LiveMonitor sim={sim} />;
       case "analysis":
@@ -103,7 +108,6 @@ function App() {
             <div className="sidebar">
               <div className="sidebar-brand">
                 <div className="name">MSFS TURNAROUND</div>
-                <div className="ver">v0.4.0-beta - open source</div>
               </div>
               <div className="nav">
                 <div className="nav-section">PANELS</div>

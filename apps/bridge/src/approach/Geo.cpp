@@ -185,6 +185,14 @@ double shortestAngleDifferenceDeg(double valueDeg, double referenceDeg) {
     return diff;
 }
 
+double nauticalMilesToMeters(double nauticalMiles) {
+    return nauticalMiles * MetersPerNauticalMile;
+}
+
+double nauticalMilesToFeet(double nauticalMiles) {
+    return nauticalMiles * 6076.12;
+}
+
 double haversineDistanceMeters(
     double lat1Deg,
     double lon1Deg,
@@ -298,6 +306,39 @@ LocalOffset projectToLocalMeters(
         std::cos(referenceLatRad);
 
     return {northM, eastM};
+}
+
+GeoPoint destinationPointDeg(
+    double startLatDeg,
+    double startLonDeg,
+    double bearingDeg,
+    double distanceM
+) {
+    const double angularDistance = distanceM / EarthRadiusMeters;
+    const double startLatRad = degToRad(startLatDeg);
+    const double startLonRad = degToRad(startLonDeg);
+    const double bearingRad = degToRad(bearingDeg);
+
+    const double sinStartLat = std::sin(startLatRad);
+    const double cosStartLat = std::cos(startLatRad);
+    const double sinAngularDistance = std::sin(angularDistance);
+    const double cosAngularDistance = std::cos(angularDistance);
+
+    const double destinationLatRad = std::asin(
+        sinStartLat * cosAngularDistance +
+        cosStartLat * sinAngularDistance * std::cos(bearingRad)
+    );
+    const double destinationLonRad =
+        startLonRad +
+        std::atan2(
+            std::sin(bearingRad) * sinAngularDistance * cosStartLat,
+            cosAngularDistance - sinStartLat * std::sin(destinationLatRad)
+        );
+
+    double longitudeDeg = radToDeg(destinationLonRad);
+    longitudeDeg = std::fmod(longitudeDeg + 540.0, 360.0) - 180.0;
+
+    return {radToDeg(destinationLatRad), longitudeDeg};
 }
 
 }

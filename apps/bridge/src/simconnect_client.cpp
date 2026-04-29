@@ -1,8 +1,12 @@
 #include "msfs_turnaround/simconnect_client.hpp"
+#include "scenario/ApproachScenario.hpp"
+
 #include <utility>
 
 #include <cmath>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 
 namespace msfs_turnaround {
 namespace {
@@ -22,9 +26,31 @@ double radiansToDegrees(double radians) {
     return radians * RadiansToDegrees;
 }
 
+std::string hresultMessage(const char* operation, HRESULT result) {
+    std::ostringstream stream;
+    stream
+        << operation
+        << " failed with HRESULT 0x"
+        << std::hex
+        << std::uppercase
+        << static_cast<unsigned long>(result);
+    return stream.str();
+}
+
+struct GenericAircraftConfiguration {
+    double parkingBrakePosition = 0.0;
+    double gearHandlePosition = 0.0;
+    double flapsHandleIndex = 0.0;
+};
+
 }
 
 bool SimConnectClient::connect() {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ != nullptr) {
+        return true;
+    }
+
     HRESULT result = SimConnect_Open(
         &simConnect_,
         "MSFS Turnaround Bridge",
@@ -44,7 +70,17 @@ bool SimConnectClient::connect() {
     return true;
 }
 
+bool SimConnectClient::isConnected() const {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    return simConnect_ != nullptr;
+}
+
 void SimConnectClient::requestAircraftTelemetry() {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        return;
+    }
+
     SimConnect_AddToDataDefinition(
         simConnect_,
         static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
@@ -199,6 +235,7 @@ void SimConnectClient::requestAircraftTelemetry() {
 }
 
 void SimConnectClient::poll() {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
     if (simConnect_ == nullptr) {
         return;
     }
@@ -207,10 +244,180 @@ void SimConnectClient::poll() {
 }
 
 void SimConnectClient::close() {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
     if (simConnect_ != nullptr) {
         SimConnect_Close(simConnect_);
         simConnect_ = nullptr;
+        initialPositionDefinitionRegistered_ = false;
+        aircraftConfigurationDefinitionRegistered_ = false;
     }
+}
+
+bool SimConnectClient::registerInitialPositionDefinition(std::string& error) {
+    if (initialPositionDefinitionRegistered_) {
+        return true;
+    }
+
+    const HRESULT result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::InitialPosition),
+        "Initial Position",
+        "NULL",
+        SIMCONNECT_DATATYPE_INITPOSITION
+    );
+
+    if (FAILED(result)) {
+        error = hresultMessage("Registering initial position data definition", result);
+        return false;
+    }
+
+    initialPositionDefinitionRegistered_ = true;
+    return true;
+}
+
+bool SimConnectClient::registerAircraftConfigurationDefinition(std::string& error) {
+    if (aircraftConfigurationDefinitionRegistered_) {
+        return true;
+    }
+
+    HRESULT result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftConfiguration),
+        "BRAKE PARKING POSITION",
+        "bool"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering parking brake data definition", result);
+        return false;
+    }
+
+    result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftConfiguration),
+        "GEAR HANDLE POSITION",
+        "bool"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering gear handle data definition", result);
+        return false;
+    }
+
+    result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftConfiguration),
+        "FLAPS HANDLE INDEX",
+        "number"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering flaps handle data definition", result);
+        return false;
+    }
+
+    aircraftConfigurationDefinitionRegistered_ = true;
+    return true;
+}
+
+bool SimConnectClient::setUserAircraftPosition(
+    const ApproachScenario& scenario,
+    std::string& error
+) {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        error = "MSFS is not connected";
+        return false;
+    }
+
+    if (!registerInitialPositionDefinition(error)) {
+        return false;
+    }
+
+    SIMCONNECT_DATA_INITPOSITION position {};
+    position.Latitude = scenario.spawnLatitudeDeg;
+    position.Longitude = scenario.spawnLongitudeDeg;
+    position.Altitude = scenario.spawnAltitudeFt;
+    position.Pitch = 0.0;
+    position.Bank = 0.0;
+    position.Heading = scenario.spawnHeadingDeg;
+    position.OnGround = 0;
+    position.Airspeed = static_cast<DWORD>(std::lround(scenario.airspeedKt));
+
+    const HRESULT result = SimConnect_SetDataOnSimObject(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::InitialPosition),
+        SIMCONNECT_OBJECT_ID_USER,
+        0,
+        0,
+        sizeof(position),
+        &position
+    );
+
+    if (FAILED(result)) {
+        error = hresultMessage("Setting user aircraft initial position", result);
+        return false;
+    }
+
+    return true;
+}
+
+bool SimConnectClient::setGenericAircraftConfiguration(
+    bool gearDown,
+    int flapsIndex,
+    std::string& error
+) {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        error = "MSFS is not connected";
+        return false;
+    }
+
+    if (!registerAircraftConfigurationDefinition(error)) {
+        return false;
+    }
+
+    GenericAircraftConfiguration configuration;
+    configuration.parkingBrakePosition = 0.0;
+    configuration.gearHandlePosition = gearDown ? 1.0 : 0.0;
+    configuration.flapsHandleIndex = static_cast<double>(flapsIndex);
+
+    const HRESULT result = SimConnect_SetDataOnSimObject(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftConfiguration),
+        SIMCONNECT_OBJECT_ID_USER,
+        0,
+        0,
+        sizeof(configuration),
+        &configuration
+    );
+
+    if (FAILED(result)) {
+        error = hresultMessage("Setting generic aircraft approach configuration", result);
+        return false;
+    }
+
+    return true;
+}
+
+bool SimConnectClient::setPaused(bool paused, std::string& error) {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        error = "MSFS is not connected";
+        return false;
+    }
+
+    const HRESULT result = SimConnect_SetSystemState(
+        simConnect_,
+        "Pause",
+        paused ? 1 : 0,
+        0.0f,
+        nullptr
+    );
+
+    if (FAILED(result)) {
+        error = hresultMessage(paused ? "Pausing simulator" : "Unpausing simulator", result);
+        return false;
+    }
+
+    return true;
 }
 
 void CALLBACK SimConnectClient::dispatchProc(SIMCONNECT_RECV* data, DWORD cbData, void* context) {

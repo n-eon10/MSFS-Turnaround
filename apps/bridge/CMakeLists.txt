@@ -15,6 +15,9 @@ add_executable(msfs_turnaround_bridge
     src/approach/Geo.cpp
     src/approach/ApproachGuidance.cpp
     src/approach/StableApproachMonitor.cpp
+    src/scenario/ApproachScenario.cpp
+    src/scenario/ScenarioSpawner.cpp
+    src/scenario/GenericAircraftAdapter.cpp
 )
 
 target_compile_definitions(msfs_turnaround_bridge PRIVATE

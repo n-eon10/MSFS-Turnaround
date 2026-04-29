@@ -5,6 +5,8 @@
 #include "approach/ApproachGuidance.hpp"
 #include "approach/StableApproachMonitor.hpp"
 #include "navdata/NavDatabase.hpp"
+#include "scenario/GenericAircraftAdapter.hpp"
+#include "scenario/ScenarioSpawner.hpp"
 
 #include <ixwebsocket/IXNetSystem.h>
 #include <nlohmann/json.hpp>
@@ -182,6 +184,35 @@ std::string stabilityGateToJson(
     return message.dump();
 }
 
+std::string scenarioSpawnResultToJson(
+    const msfs_turnaround::ScenarioSpawnResult& result
+) {
+    nlohmann::json message = {
+        {"type", "scenario.spawn_final.result"},
+        {"ok", result.ok},
+        {"airportIdent", result.airportIdent},
+        {"runwayIdent", result.runwayIdent},
+        {"distanceNm", result.distanceNm},
+        {"glidepathDeg", result.glidepathDeg},
+        {"airspeedKt", result.airspeedKt},
+        {"spawnLatitudeDeg", result.spawnLatitudeDeg},
+        {"spawnLongitudeDeg", result.spawnLongitudeDeg},
+        {"spawnAltitudeFt", result.spawnAltitudeFt},
+        {"spawnHeadingDeg", result.spawnHeadingDeg},
+        {"gearRequested", result.gearRequested},
+        {"flapsRequested", result.flapsRequested},
+        {"parkingBrakeRequested", result.parkingBrakeRequested},
+        {"pauseRequested", result.pauseRequested},
+        {"warnings", result.warnings}
+    };
+
+    if (!result.error.empty()) {
+        message["error"] = result.error;
+    }
+
+    return message.dump();
+}
+
 std::filesystem::path parseNavdataPath(int argc, char** argv) {
     std::filesystem::path navdataPath = "data/processed/navdata.sqlite";
 
@@ -254,6 +285,24 @@ int jsonInt(const nlohmann::json& message, const char* key, int fallback) {
     return fallback;
 }
 
+double jsonDouble(const nlohmann::json& message, const char* key, double fallback) {
+    const auto it = message.find(key);
+    if (it == message.end() || !it->is_number()) {
+        return fallback;
+    }
+
+    return it->get<double>();
+}
+
+bool jsonBool(const nlohmann::json& message, const char* key, bool fallback) {
+    const auto it = message.find(key);
+    if (it == message.end() || !it->is_boolean()) {
+        return fallback;
+    }
+
+    return it->get<bool>();
+}
+
 void sendJson(
     const std::function<void(const std::string&)>& send,
     const nlohmann::json& message
@@ -264,6 +313,7 @@ void sendJson(
 void handleClientMessage(
     const std::string& rawMessage,
     msfs_turnaround::NavDatabase& navDatabase,
+    msfs_turnaround::ScenarioSpawner& scenarioSpawner,
     std::mutex& activeRunwayMutex,
     std::optional<msfs_turnaround::RunwayEnd>& activeRunway,
     msfs_turnaround::StableApproachMonitor& stableApproachMonitor,
@@ -358,6 +408,38 @@ void handleClientMessage(
         sendJson(send, response);
         return;
     }
+
+    if (type == "scenario.spawn_final") {
+        msfs_turnaround::ApproachScenarioRequest request;
+        request.airportIdent = jsonString(message, "airportIdent");
+        request.runwayIdent = jsonString(message, "runwayIdent");
+        request.distanceNm = jsonDouble(message, "distanceNm", request.distanceNm);
+        request.glidepathDeg = jsonDouble(message, "glidepathDeg", request.glidepathDeg);
+        request.airspeedKt = jsonDouble(message, "airspeedKt", request.airspeedKt);
+        request.gearDown = jsonBool(message, "gearDown", request.gearDown);
+        request.flapsIndex = jsonInt(message, "flapsIndex", request.flapsIndex);
+        request.pauseAfterSpawn =
+            jsonBool(message, "pauseAfterSpawn", request.pauseAfterSpawn);
+
+        std::optional<msfs_turnaround::RunwayEnd> activeRunwayCopy;
+        {
+            std::lock_guard<std::mutex> lock(activeRunwayMutex);
+            activeRunwayCopy = activeRunway;
+        }
+
+        std::optional<msfs_turnaround::RunwayEnd> selectedRunway;
+        const auto result =
+            scenarioSpawner.spawnFinal(request, activeRunwayCopy, selectedRunway);
+
+        if (result.ok && selectedRunway) {
+            std::lock_guard<std::mutex> lock(activeRunwayMutex);
+            activeRunway = selectedRunway;
+            stableApproachMonitor.resetForNewApproach();
+        }
+
+        send(scenarioSpawnResultToJson(result));
+        return;
+    }
 }
 
 }
@@ -373,16 +455,30 @@ int main(int argc, char** argv) {
     std::mutex activeRunwayMutex;
     std::optional<msfs_turnaround::RunwayEnd> activeRunway;
     msfs_turnaround::StableApproachMonitor stableApproachMonitor;
+    msfs_turnaround::SimConnectClient simConnectClient;
+    msfs_turnaround::GenericAircraftAdapter genericAircraftAdapter;
+    msfs_turnaround::ScenarioSpawner scenarioSpawner(
+        navDatabase,
+        simConnectClient,
+        genericAircraftAdapter
+    );
 
     msfs_turnaround::WebSocketServer webSocketServer(48787);
     webSocketServer.setClientMessageHandler(
-        [&navDatabase, &activeRunwayMutex, &activeRunway, &stableApproachMonitor](
+        [
+            &navDatabase,
+            &scenarioSpawner,
+            &activeRunwayMutex,
+            &activeRunway,
+            &stableApproachMonitor
+        ](
             const std::string& rawMessage,
             const std::function<void(const std::string&)>& send
         ) {
             handleClientMessage(
                 rawMessage,
                 navDatabase,
+                scenarioSpawner,
                 activeRunwayMutex,
                 activeRunway,
                 stableApproachMonitor,
@@ -392,14 +488,6 @@ int main(int argc, char** argv) {
     );
 
     if (!webSocketServer.start()) {
-        ix::uninitNetSystem();
-        return 1;
-    }
-
-    msfs_turnaround::SimConnectClient simConnectClient;
-
-    if (!simConnectClient.connect()) {
-        webSocketServer.stop();
         ix::uninitNetSystem();
         return 1;
     }
@@ -490,13 +578,34 @@ int main(int argc, char** argv) {
         }
     );
 
-    simConnectClient.requestAircraftTelemetry();
+    auto connectToSimulator = [&simConnectClient]() {
+        if (!simConnectClient.connect()) {
+            std::cerr
+                << "MSFS is not connected yet; bridge WebSocket remains available."
+                << std::endl;
+            return false;
+        }
 
-    std::cout << "Streaming telemetry to WebSocket clients." << std::endl;
+        simConnectClient.requestAircraftTelemetry();
+        std::cout << "Streaming telemetry to WebSocket clients." << std::endl;
+        return true;
+    };
+
     std::cout << "Endpoint: ws://localhost:48787" << std::endl;
+    const bool initiallyConnected = connectToSimulator();
+    auto nextReconnectAttempt =
+        std::chrono::steady_clock::now() +
+        (initiallyConnected ? std::chrono::seconds(0) : std::chrono::seconds(5));
 
     while (true) {
-        simConnectClient.poll();
+        if (simConnectClient.isConnected()) {
+            simConnectClient.poll();
+        } else if (std::chrono::steady_clock::now() >= nextReconnectAttempt) {
+            connectToSimulator();
+            nextReconnectAttempt =
+                std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        }
+
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 

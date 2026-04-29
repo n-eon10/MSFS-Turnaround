@@ -6,7 +6,8 @@
       "Bash(mkdir -p extracted)",
       "Bash(tar -xzf webfetch-1777394087761-5eocfo.bin -C extracted)",
       "Bash(npx tsc *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "PowerShell(cmake --build --preset bridge-debug 2>&1)"
     ]
   }
 }

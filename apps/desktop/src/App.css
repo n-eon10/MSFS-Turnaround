@@ -295,6 +295,17 @@ body {
 .metric .val.good { color: var(--good); }
 .metric .val.warn { color: var(--warn); }
 .metric .val.bad  { color: var(--bad); }
+.metric input[type="number"] {
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  color: var(--fg);
+  outline: none;
+}
+.metric input[type="number"]:focus { border-color: var(--accent); }
 
 .pill {
   display: inline-flex;

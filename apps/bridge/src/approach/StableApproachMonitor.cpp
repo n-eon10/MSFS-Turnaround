@@ -40,6 +40,18 @@ bool isValidRadioAltitude(double radioAltitudeFt) {
     return std::isfinite(radioAltitudeFt) && radioAltitudeFt >= 0.0;
 }
 
+bool isOnFinalApproach(const ApproachGuidanceResult& guidance) {
+    constexpr double MaxFinalCourseErrorDeg = 30.0;
+    constexpr double MaxFinalDistanceNm = 12.0;
+
+    return std::isfinite(guidance.courseErrorDeg) &&
+           std::isfinite(guidance.alongTrackDistanceNm) &&
+           std::isfinite(guidance.distanceNm) &&
+           std::abs(guidance.courseErrorDeg) < MaxFinalCourseErrorDeg &&
+           guidance.alongTrackDistanceNm > 0.0 &&
+           guidance.distanceNm < MaxFinalDistanceNm;
+}
+
 bool hasInvalidGuidanceGeometry(const ApproachGuidanceResult& guidance) {
     for (const auto& issue : guidance.issues) {
         if (
@@ -144,6 +156,13 @@ std::optional<StableApproachGateResult> StableApproachMonitor::update(
     }
 
     if (hasInvalidGuidanceGeometry(guidance)) {
+        return std::nullopt;
+    }
+
+    if (!isOnFinalApproach(guidance)) {
+        // Drop the altitude baseline so a re-established final still arms
+        // the descending threshold-crossing detector.
+        previousRadioAltitudeFt_.reset();
         return std::nullopt;
     }
 
