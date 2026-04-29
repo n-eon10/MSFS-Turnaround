@@ -122,6 +122,7 @@ export type SpawnFinalResult = {
   ok: boolean;
   error?: string;
   warnings?: string[];
+  runway?: NavRunwayEnd;
   airportIdent?: string;
   runwayIdent?: string;
   distanceNm?: number;

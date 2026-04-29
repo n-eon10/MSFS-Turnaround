@@ -11,6 +11,10 @@ bool isFinite(double value) {
     return std::isfinite(value);
 }
 
+bool simBool(double value) {
+    return isFinite(value) && std::abs(value) >= 0.5;
+}
+
 bool isValidCoordinate(double latitudeDeg, double longitudeDeg) {
     return isFinite(latitudeDeg) &&
            isFinite(longitudeDeg) &&
@@ -69,10 +73,10 @@ bool LandingDetector::update(const AircraftTelemetry& telemetry) {
         return false;
     }
 
-    const bool wasOnGround = previousSimOnGround_ >= 0.5;
-    const bool isOnGround = telemetry.simOnGround >= 0.5;
+    const bool wasOnGround = simBool(previousSimOnGround_);
+    const bool isOnGround = simBool(telemetry.simOnGround);
     const bool groundStateChanged = wasOnGround != isOnGround;
-    const bool touchdownDetected = previousSimOnGround_ < 0.5 && telemetry.simOnGround >= 0.5;
+    const bool touchdownDetected = !wasOnGround && isOnGround;
 
     if (groundStateChanged) {
         std::cout << "Ground state changed: " << (isOnGround ? 1 : 0) << std::endl;

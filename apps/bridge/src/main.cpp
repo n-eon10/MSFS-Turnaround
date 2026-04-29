@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <functional>
 #include <iostream>
@@ -21,6 +22,13 @@
 #include <thread>
 
 namespace {
+
+using msfs_turnaround::AircraftTelemetry;
+using msfs_turnaround::RunwayEnd;
+
+bool simBool(double value) {
+    return std::isfinite(value) && std::abs(value) >= 0.5;
+}
 
 std::string telemetryToJson(const msfs_turnaround::AircraftTelemetry& telemetry) {
     nlohmann::json message = {
@@ -184,8 +192,11 @@ std::string stabilityGateToJson(
     return message.dump();
 }
 
+nlohmann::json runwayEndToJson(const RunwayEnd& runwayEnd);
+
 std::string scenarioSpawnResultToJson(
-    const msfs_turnaround::ScenarioSpawnResult& result
+    const msfs_turnaround::ScenarioSpawnResult& result,
+    const std::optional<RunwayEnd>& selectedRunway
 ) {
     nlohmann::json message = {
         {"type", "scenario.spawn_final.result"},
@@ -208,6 +219,10 @@ std::string scenarioSpawnResultToJson(
 
     if (!result.error.empty()) {
         message["error"] = result.error;
+    }
+
+    if (selectedRunway) {
+        message["runway"] = runwayEndToJson(*selectedRunway);
     }
 
     return message.dump();
@@ -245,7 +260,7 @@ nlohmann::json airportToJson(const msfs_turnaround::Airport& airport) {
     };
 }
 
-nlohmann::json runwayEndToJson(const msfs_turnaround::RunwayEnd& runwayEnd) {
+nlohmann::json runwayEndToJson(const RunwayEnd& runwayEnd) {
     return {
         {"airportIdent", runwayEnd.airportIdent},
         {"runwayIdent", runwayEnd.runwayIdent},
@@ -315,7 +330,9 @@ void handleClientMessage(
     msfs_turnaround::NavDatabase& navDatabase,
     msfs_turnaround::ScenarioSpawner& scenarioSpawner,
     std::mutex& activeRunwayMutex,
-    std::optional<msfs_turnaround::RunwayEnd>& activeRunway,
+    std::optional<RunwayEnd>& activeRunway,
+    std::mutex& latestTelemetryMutex,
+    std::optional<AircraftTelemetry>& latestTelemetry,
     msfs_turnaround::StableApproachMonitor& stableApproachMonitor,
     const std::function<void(const std::string&)>& send
 ) {
@@ -421,13 +438,40 @@ void handleClientMessage(
         request.pauseAfterSpawn =
             jsonBool(message, "pauseAfterSpawn", request.pauseAfterSpawn);
 
-        std::optional<msfs_turnaround::RunwayEnd> activeRunwayCopy;
+        std::optional<RunwayEnd> activeRunwayCopy;
         {
             std::lock_guard<std::mutex> lock(activeRunwayMutex);
             activeRunwayCopy = activeRunway;
         }
 
-        std::optional<msfs_turnaround::RunwayEnd> selectedRunway;
+        if (!activeRunwayCopy &&
+            request.airportIdent.empty() &&
+            request.runwayIdent.empty()) {
+            std::optional<AircraftTelemetry> latestTelemetryCopy;
+            {
+                std::lock_guard<std::mutex> lock(latestTelemetryMutex);
+                latestTelemetryCopy = latestTelemetry;
+            }
+
+            if (latestTelemetryCopy && simBool(latestTelemetryCopy->simOnGround)) {
+                activeRunwayCopy = navDatabase.findNearestRunwayEnd(
+                    latestTelemetryCopy->latitudeDeg,
+                    latestTelemetryCopy->longitudeDeg,
+                    latestTelemetryCopy->headingDeg
+                );
+
+                if (activeRunwayCopy) {
+                    std::cout
+                        << "Inferred active runway from aircraft position: "
+                        << activeRunwayCopy->airportIdent
+                        << " "
+                        << activeRunwayCopy->runwayIdent
+                        << std::endl;
+                }
+            }
+        }
+
+        std::optional<RunwayEnd> selectedRunway;
         const auto result =
             scenarioSpawner.spawnFinal(request, activeRunwayCopy, selectedRunway);
 
@@ -437,7 +481,7 @@ void handleClientMessage(
             stableApproachMonitor.resetForNewApproach();
         }
 
-        send(scenarioSpawnResultToJson(result));
+        send(scenarioSpawnResultToJson(result, selectedRunway));
         return;
     }
 }
@@ -453,7 +497,9 @@ int main(int argc, char** argv) {
     navDatabase.open(parseNavdataPath(argc, argv));
 
     std::mutex activeRunwayMutex;
-    std::optional<msfs_turnaround::RunwayEnd> activeRunway;
+    std::optional<RunwayEnd> activeRunway;
+    std::mutex latestTelemetryMutex;
+    std::optional<AircraftTelemetry> latestTelemetry;
     msfs_turnaround::StableApproachMonitor stableApproachMonitor;
     msfs_turnaround::SimConnectClient simConnectClient;
     msfs_turnaround::GenericAircraftAdapter genericAircraftAdapter;
@@ -470,6 +516,8 @@ int main(int argc, char** argv) {
             &scenarioSpawner,
             &activeRunwayMutex,
             &activeRunway,
+            &latestTelemetryMutex,
+            &latestTelemetry,
             &stableApproachMonitor
         ](
             const std::string& rawMessage,
@@ -481,6 +529,8 @@ int main(int argc, char** argv) {
                 scenarioSpawner,
                 activeRunwayMutex,
                 activeRunway,
+                latestTelemetryMutex,
+                latestTelemetry,
                 stableApproachMonitor,
                 send
             );
@@ -502,16 +552,23 @@ int main(int argc, char** argv) {
             &landingDetector,
             &activeRunwayMutex,
             &activeRunway,
+            &latestTelemetryMutex,
+            &latestTelemetry,
             &stableApproachMonitor,
             &hasSeenGroundState,
             &previousOnGround
         ](const msfs_turnaround::AircraftTelemetry& telemetry) {
+            {
+                std::lock_guard<std::mutex> lock(latestTelemetryMutex);
+                latestTelemetry = telemetry;
+            }
+
             webSocketServer.broadcast(telemetryToJson(telemetry));
 
             std::optional<msfs_turnaround::RunwayEnd> runwayForGuidance;
             {
                 std::lock_guard<std::mutex> lock(activeRunwayMutex);
-                const bool isOnGround = telemetry.simOnGround >= 0.5;
+                const bool isOnGround = simBool(telemetry.simOnGround);
                 if (hasSeenGroundState && previousOnGround && !isOnGround) {
                     stableApproachMonitor.resetForNewApproach();
                 }

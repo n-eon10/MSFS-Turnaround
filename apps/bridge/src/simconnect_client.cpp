@@ -43,6 +43,77 @@ struct GenericAircraftConfiguration {
     double flapsHandleIndex = 0.0;
 };
 
+struct DirectAircraftPosition {
+    double latitudeDeg = 0.0;
+    double longitudeDeg = 0.0;
+    double altitudeFt = 0.0;
+    double pitchDeg = 0.0;
+    double bankDeg = 0.0;
+    double headingDeg = 0.0;
+};
+
+struct DirectAircraftFlightState {
+    double simOnGround = 0.0;
+    double trueAirspeedKt = 0.0;
+};
+
+const char* simConnectExceptionName(DWORD exception) {
+    switch (exception) {
+        case SIMCONNECT_EXCEPTION_NONE:
+            return "NONE";
+        case SIMCONNECT_EXCEPTION_ERROR:
+            return "ERROR";
+        case SIMCONNECT_EXCEPTION_SIZE_MISMATCH:
+            return "SIZE_MISMATCH";
+        case SIMCONNECT_EXCEPTION_UNRECOGNIZED_ID:
+            return "UNRECOGNIZED_ID";
+        case SIMCONNECT_EXCEPTION_UNOPENED:
+            return "UNOPENED";
+        case SIMCONNECT_EXCEPTION_VERSION_MISMATCH:
+            return "VERSION_MISMATCH";
+        case SIMCONNECT_EXCEPTION_TOO_MANY_GROUPS:
+            return "TOO_MANY_GROUPS";
+        case SIMCONNECT_EXCEPTION_NAME_UNRECOGNIZED:
+            return "NAME_UNRECOGNIZED";
+        case SIMCONNECT_EXCEPTION_TOO_MANY_EVENT_NAMES:
+            return "TOO_MANY_EVENT_NAMES";
+        case SIMCONNECT_EXCEPTION_EVENT_ID_DUPLICATE:
+            return "EVENT_ID_DUPLICATE";
+        case SIMCONNECT_EXCEPTION_TOO_MANY_MAPS:
+            return "TOO_MANY_MAPS";
+        case SIMCONNECT_EXCEPTION_TOO_MANY_OBJECTS:
+            return "TOO_MANY_OBJECTS";
+        case SIMCONNECT_EXCEPTION_TOO_MANY_REQUESTS:
+            return "TOO_MANY_REQUESTS";
+        case SIMCONNECT_EXCEPTION_INVALID_DATA_TYPE:
+            return "INVALID_DATA_TYPE";
+        case SIMCONNECT_EXCEPTION_INVALID_DATA_SIZE:
+            return "INVALID_DATA_SIZE";
+        case SIMCONNECT_EXCEPTION_DATA_ERROR:
+            return "DATA_ERROR";
+        case SIMCONNECT_EXCEPTION_INVALID_ARRAY:
+            return "INVALID_ARRAY";
+        case SIMCONNECT_EXCEPTION_OPERATION_INVALID_FOR_OBJECT_TYPE:
+            return "OPERATION_INVALID_FOR_OBJECT_TYPE";
+        case SIMCONNECT_EXCEPTION_ILLEGAL_OPERATION:
+            return "ILLEGAL_OPERATION";
+        case SIMCONNECT_EXCEPTION_INVALID_ENUM:
+            return "INVALID_ENUM";
+        case SIMCONNECT_EXCEPTION_DEFINITION_ERROR:
+            return "DEFINITION_ERROR";
+        case SIMCONNECT_EXCEPTION_DUPLICATE_ID:
+            return "DUPLICATE_ID";
+        case SIMCONNECT_EXCEPTION_DATUM_ID:
+            return "DATUM_ID";
+        case SIMCONNECT_EXCEPTION_OUT_OF_BOUNDS:
+            return "OUT_OF_BOUNDS";
+        case SIMCONNECT_EXCEPTION_INTERNAL:
+            return "INTERNAL";
+        default:
+            return "UNKNOWN";
+    }
+}
+
 }
 
 bool SimConnectClient::connect() {
@@ -249,6 +320,8 @@ void SimConnectClient::close() {
         SimConnect_Close(simConnect_);
         simConnect_ = nullptr;
         initialPositionDefinitionRegistered_ = false;
+        directPositionDefinitionRegistered_ = false;
+        directFlightStateDefinitionRegistered_ = false;
         aircraftConfigurationDefinitionRegistered_ = false;
     }
 }
@@ -272,6 +345,112 @@ bool SimConnectClient::registerInitialPositionDefinition(std::string& error) {
     }
 
     initialPositionDefinitionRegistered_ = true;
+    return true;
+}
+
+bool SimConnectClient::registerDirectPositionDefinition(std::string& error) {
+    if (directPositionDefinitionRegistered_) {
+        return true;
+    }
+
+    HRESULT result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::DirectPosition),
+        "PLANE LATITUDE",
+        "degrees"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering direct latitude data definition", result);
+        return false;
+    }
+
+    result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::DirectPosition),
+        "PLANE LONGITUDE",
+        "degrees"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering direct longitude data definition", result);
+        return false;
+    }
+
+    result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::DirectPosition),
+        "PLANE ALTITUDE",
+        "feet"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering direct altitude data definition", result);
+        return false;
+    }
+
+    result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::DirectPosition),
+        "PLANE PITCH DEGREES",
+        "degrees"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering direct pitch data definition", result);
+        return false;
+    }
+
+    result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::DirectPosition),
+        "PLANE BANK DEGREES",
+        "degrees"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering direct bank data definition", result);
+        return false;
+    }
+
+    result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::DirectPosition),
+        "PLANE HEADING DEGREES TRUE",
+        "degrees"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering direct heading data definition", result);
+        return false;
+    }
+
+    directPositionDefinitionRegistered_ = true;
+    return true;
+}
+
+bool SimConnectClient::registerDirectFlightStateDefinition(std::string& error) {
+    if (directFlightStateDefinitionRegistered_) {
+        return true;
+    }
+
+    HRESULT result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::DirectFlightState),
+        "SIM ON GROUND",
+        "bool"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering direct on-ground data definition", result);
+        return false;
+    }
+
+    result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::DirectFlightState),
+        "AIRSPEED TRUE RAW",
+        "knots"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering direct airspeed data definition", result);
+        return false;
+    }
+
+    directFlightStateDefinitionRegistered_ = true;
     return true;
 }
 
@@ -317,16 +496,10 @@ bool SimConnectClient::registerAircraftConfigurationDefinition(std::string& erro
     return true;
 }
 
-bool SimConnectClient::setUserAircraftPosition(
+bool SimConnectClient::setUserAircraftInitialPosition(
     const ApproachScenario& scenario,
     std::string& error
 ) {
-    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
-    if (simConnect_ == nullptr) {
-        error = "MSFS is not connected";
-        return false;
-    }
-
     if (!registerInitialPositionDefinition(error)) {
         return false;
     }
@@ -355,6 +528,119 @@ bool SimConnectClient::setUserAircraftPosition(
         error = hresultMessage("Setting user aircraft initial position", result);
         return false;
     }
+
+    return true;
+}
+
+bool SimConnectClient::setUserAircraftDirectPosition(
+    const ApproachScenario& scenario,
+    std::string& error
+) {
+    if (!registerDirectPositionDefinition(error)) {
+        return false;
+    }
+
+    DirectAircraftPosition position;
+    position.latitudeDeg = scenario.spawnLatitudeDeg;
+    position.longitudeDeg = scenario.spawnLongitudeDeg;
+    position.altitudeFt = scenario.spawnAltitudeFt;
+    position.pitchDeg = 0.0;
+    position.bankDeg = 0.0;
+    position.headingDeg = scenario.spawnHeadingDeg;
+
+    const HRESULT result = SimConnect_SetDataOnSimObject(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::DirectPosition),
+        SIMCONNECT_OBJECT_ID_USER,
+        0,
+        0,
+        sizeof(position),
+        &position
+    );
+
+    if (FAILED(result)) {
+        error = hresultMessage("Setting user aircraft direct position", result);
+        return false;
+    }
+
+    return true;
+}
+
+bool SimConnectClient::setUserAircraftDirectFlightState(
+    const ApproachScenario& scenario,
+    std::string& error
+) {
+    if (!registerDirectFlightStateDefinition(error)) {
+        return false;
+    }
+
+    DirectAircraftFlightState flightState;
+    flightState.simOnGround = 0;
+    flightState.trueAirspeedKt = scenario.airspeedKt;
+
+    const HRESULT result = SimConnect_SetDataOnSimObject(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::DirectFlightState),
+        SIMCONNECT_OBJECT_ID_USER,
+        0,
+        0,
+        sizeof(flightState),
+        &flightState
+    );
+
+    if (FAILED(result)) {
+        error = hresultMessage("Setting user aircraft direct flight state", result);
+        return false;
+    }
+
+    return true;
+}
+
+bool SimConnectClient::setUserAircraftPosition(
+    const ApproachScenario& scenario,
+    std::string& error
+) {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        error = "MSFS is not connected";
+        return false;
+    }
+
+    std::string initialPositionError;
+    if (!setUserAircraftInitialPosition(scenario, initialPositionError)) {
+        std::cerr
+            << "Initial aircraft position warning: "
+            << initialPositionError
+            << std::endl;
+    }
+
+    std::string directFlightStateError;
+    if (!setUserAircraftDirectFlightState(scenario, directFlightStateError)) {
+        std::cerr
+            << "Direct aircraft flight state warning: "
+            << directFlightStateError
+            << std::endl;
+    }
+
+    if (!setUserAircraftDirectPosition(scenario, error)) {
+        return false;
+    }
+
+    directFlightStateError.clear();
+    if (!setUserAircraftDirectFlightState(scenario, directFlightStateError)) {
+        std::cerr
+            << "Direct aircraft flight state warning: "
+            << directFlightStateError
+            << std::endl;
+    }
+
+    std::cout
+        << "Requested aircraft reposition: LAT=" << scenario.spawnLatitudeDeg
+        << " LON=" << scenario.spawnLongitudeDeg
+        << " ALT_FT=" << scenario.spawnAltitudeFt
+        << " HDG_DEG=" << scenario.spawnHeadingDeg
+        << " TAS_KT=" << scenario.airspeedKt
+        << std::endl;
 
     return true;
 }
@@ -421,6 +707,7 @@ bool SimConnectClient::setPaused(bool paused, std::string& error) {
 }
 
 void CALLBACK SimConnectClient::dispatchProc(SIMCONNECT_RECV* data, DWORD cbData, void* context) {
+    (void)cbData;
     auto* client = static_cast<SimConnectClient*>(context);
 
     if (client != nullptr) {
@@ -430,6 +717,18 @@ void CALLBACK SimConnectClient::dispatchProc(SIMCONNECT_RECV* data, DWORD cbData
 
 void SimConnectClient::handleDispatch(SIMCONNECT_RECV* data) {
     switch (data->dwID) {
+        case SIMCONNECT_RECV_ID_EXCEPTION: {
+            const auto* exception = reinterpret_cast<SIMCONNECT_RECV_EXCEPTION*>(data);
+            std::cerr
+                << "SimConnect exception: "
+                << simConnectExceptionName(exception->dwException)
+                << " (" << exception->dwException << ")"
+                << " send_id=" << exception->dwSendID
+                << " index=" << exception->dwIndex
+                << std::endl;
+            break;
+        }
+
         case SIMCONNECT_RECV_ID_SIMOBJECT_DATA: {
             const auto* objectData = reinterpret_cast<SIMCONNECT_RECV_SIMOBJECT_DATA*>(data);
 

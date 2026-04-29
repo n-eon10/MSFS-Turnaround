@@ -30,6 +30,11 @@ public:
         const std::string& airportIdent,
         const std::string& runwayIdent
     ) const;
+    std::optional<RunwayEnd> findNearestRunwayEnd(
+        double latitudeDeg,
+        double longitudeDeg,
+        double headingDeg
+    ) const;
 
 private:
     sqlite3* database_ = nullptr;

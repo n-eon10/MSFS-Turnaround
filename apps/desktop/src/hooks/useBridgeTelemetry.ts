@@ -14,6 +14,10 @@ import type {
 
 const BRIDGE_URL = "ws://localhost:48787";
 
+function simBool(value: number | undefined): boolean {
+  return typeof value === "number" && Math.abs(value) >= 0.5;
+}
+
 export function useBridgeTelemetry() {
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -69,7 +73,7 @@ export function useBridgeTelemetry() {
 
           if (message.type === "aircraft.telemetry") {
             const telemetryPayload = message.payload as AircraftTelemetry;
-            const isOnGround = telemetryPayload.simOnGround >= 0.5;
+            const isOnGround = simBool(telemetryPayload.simOnGround);
             if (previousOnGroundRef.current === true && !isOnGround) {
               setStabilityGate1000(null);
               setStabilityGate500(null);
@@ -141,6 +145,10 @@ export function useBridgeTelemetry() {
             setLastSpawnResult(result);
             setScenarioError(result.ok ? null : result.error ?? "Spawn failed");
             if (result.ok) {
+              if (result.runway) {
+                setSelectedRunway(result.runway);
+                pendingSelectedRunwayRef.current = result.runway;
+              }
               setApproachGuidance(null);
               setStabilityGate1000(null);
               setStabilityGate500(null);

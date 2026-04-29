@@ -40,6 +40,10 @@ bool isValidRadioAltitude(double radioAltitudeFt) {
     return std::isfinite(radioAltitudeFt) && radioAltitudeFt >= 0.0;
 }
 
+bool simBool(double value) {
+    return std::isfinite(value) && std::abs(value) >= 0.5;
+}
+
 bool isOnFinalApproach(const ApproachGuidanceResult& guidance) {
     constexpr double MaxFinalCourseErrorDeg = 30.0;
     constexpr double MaxFinalDistanceNm = 12.0;
@@ -151,7 +155,7 @@ std::optional<StableApproachGateResult> StableApproachMonitor::update(
     const AircraftTelemetry& telemetry,
     const ApproachGuidanceResult& guidance
 ) {
-    if (telemetry.simOnGround >= 0.5) {
+    if (simBool(telemetry.simOnGround)) {
         return std::nullopt;
     }
 

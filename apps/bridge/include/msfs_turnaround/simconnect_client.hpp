@@ -43,12 +43,16 @@ private:
     TelemetryCallback telemetryCallback_;
     mutable std::recursive_mutex simConnectMutex_;
     bool initialPositionDefinitionRegistered_ = false;
+    bool directPositionDefinitionRegistered_ = false;
+    bool directFlightStateDefinitionRegistered_ = false;
     bool aircraftConfigurationDefinitionRegistered_ = false;
 
     enum class DataDefinitionId : DWORD {
         AircraftTelemetry = 1,
         InitialPosition = 2,
         AircraftConfiguration = 3,
+        DirectPosition = 4,
+        DirectFlightState = 5,
     };
 
     enum class DataRequestId : DWORD {
@@ -56,7 +60,21 @@ private:
     };
 
     bool registerInitialPositionDefinition(std::string& error);
+    bool registerDirectPositionDefinition(std::string& error);
+    bool registerDirectFlightStateDefinition(std::string& error);
     bool registerAircraftConfigurationDefinition(std::string& error);
+    bool setUserAircraftInitialPosition(
+        const ApproachScenario& scenario,
+        std::string& error
+    );
+    bool setUserAircraftDirectPosition(
+        const ApproachScenario& scenario,
+        std::string& error
+    );
+    bool setUserAircraftDirectFlightState(
+        const ApproachScenario& scenario,
+        std::string& error
+    );
 
     static void CALLBACK dispatchProc(SIMCONNECT_RECV* data, DWORD cbData, void* context);
     void handleDispatch(SIMCONNECT_RECV* data);

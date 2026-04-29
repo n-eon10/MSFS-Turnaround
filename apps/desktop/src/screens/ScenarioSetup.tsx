@@ -44,9 +44,19 @@ export function ScenarioSetup({ sim }: { sim: UseSimResult }) {
   const disabledReason = !s.connected
     ? "Bridge is not connected"
     : !selectedRunway
-      ? "Select a runway in Airport Setup first"
+      ? !s.hasTelemetry
+        ? "Select a runway in Airport Setup or wait for live telemetry"
+        : null
       : null;
   const spawnDisabled = disabledReason !== null;
+  const spawnSummary = selectedRunway
+    ? `${fmt(distanceNm, 1)} NM final, ${fmt(glidepathDeg, 1)} DEG, heading ${padHdg(selectedRunway.headingDegT)}`
+    : "No runway selected; bridge will use the runway nearest the current aircraft position";
+  const runwayStatus = selectedRunway
+    ? "RUNWAY READY"
+    : s.hasTelemetry
+      ? "AUTO FROM SIM"
+      : "NO RUNWAY";
 
   const [pending, setPending] = useState(false);
   const resultCardRef = useRef<HTMLDivElement | null>(null);
@@ -60,14 +70,14 @@ export function ScenarioSetup({ sim }: { sim: UseSimResult }) {
   }, [pending, lastResult, s.scenario.error]);
 
   const spawnOnFinal = () => {
-    if (!selectedRunway) {
-      return;
-    }
-
     setPending(true);
     sim.actions.spawnFinal({
-      airportIdent: selectedRunway.airportIdent,
-      runwayIdent: selectedRunway.runwayIdent,
+      ...(selectedRunway
+        ? {
+            airportIdent: selectedRunway.airportIdent,
+            runwayIdent: selectedRunway.runwayIdent,
+          }
+        : {}),
       distanceNm,
       glidepathDeg,
       airspeedKt,
@@ -84,7 +94,7 @@ export function ScenarioSetup({ sim }: { sim: UseSimResult }) {
           <div className="card-head">
             <span className="lbl">SCENARIO SETUP</span>
             <StatusPill kind={selectedRunway ? "good" : "warn"}>
-              {selectedRunway ? "RUNWAY READY" : "NO RUNWAY"}
+              {runwayStatus}
             </StatusPill>
           </div>
           <div className="card-body grid-4" style={{ gap: 22 }}>
@@ -227,7 +237,7 @@ export function ScenarioSetup({ sim }: { sim: UseSimResult }) {
               <div className="todo-note">
                 {disabledReason
                   ? disabledReason
-                  : `${fmt(distanceNm, 1)} NM final, ${fmt(glidepathDeg, 1)} DEG, heading ${padHdg(selectedRunway!.headingDegT)}`}
+                  : spawnSummary}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 {pending && <StatusPill kind="warn">SPAWNING…</StatusPill>}

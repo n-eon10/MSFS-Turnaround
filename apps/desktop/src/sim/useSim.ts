@@ -206,6 +206,10 @@ function numberOrNull(value: number | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function simBool(value: number | undefined): boolean {
+  return typeof value === "number" && Math.abs(value) >= 0.5;
+}
+
 function derivePhase(
   telemetry: AircraftTelemetry | null,
   landingAnalysis: LandingAnalysisPayload | null
@@ -214,7 +218,7 @@ function derivePhase(
     return "preflight";
   }
 
-  if (telemetry.simOnGround >= 0.5) {
+  if (simBool(telemetry.simOnGround)) {
     return landingAnalysis ? "landed" : "preflight";
   }
 
