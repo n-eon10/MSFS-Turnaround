@@ -1,6 +1,7 @@
 import type { LandingReport, TrajectoryRecord, UseSimResult } from "../sim/useSim";
 import { fmt, padHdg } from "../sim/format";
 import { StatusPill, TodoValue } from "./common";
+import type { LandingStableApproachGate } from "../types/telemetry";
 
 function ScoreBar({ k, v, weight }: { k: string; v: number; weight: number }) {
   const color =
@@ -40,6 +41,102 @@ function ScoreBar({ k, v, weight }: { k: string; v: number; weight: number }) {
         }}
       >
         <div style={{ height: "100%", width: `${v}%`, background: color }}></div>
+      </div>
+    </div>
+  );
+}
+
+function landingLateralLabel(valueM: number | undefined): string {
+  if (valueM == null) return "-";
+  if (Math.abs(valueM) < 1) return "ON CENTRELINE";
+  return `${fmt(Math.abs(valueM))} M ${valueM > 0 ? "RIGHT" : "LEFT"}`;
+}
+
+function landingGlidepathLabel(valueFt: number | undefined): string {
+  if (valueFt == null) return "-";
+  if (Math.abs(valueFt) < 1) return "ON PATH";
+  return `${fmt(Math.abs(valueFt))} FT ${valueFt > 0 ? "HIGH" : "LOW"}`;
+}
+
+function LandingGateSummary({
+  label,
+  gate,
+}: {
+  label: string;
+  gate: LandingStableApproachGate | undefined;
+}) {
+  return (
+    <div className="card" style={{ flex: 1 }}>
+      <div className="card-head">
+        <span className="lbl">{label}</span>
+        {gate?.captured ? (
+          <StatusPill kind={gate.stable ? "good" : "bad"}>
+            {gate.stable ? "STABLE" : "UNSTABLE"}
+          </StatusPill>
+        ) : (
+          <StatusPill kind="warn">NOT CAPTURED</StatusPill>
+        )}
+      </div>
+      <div className="card-body">
+        {gate?.captured ? (
+          <>
+            <div className="grid-4" style={{ gap: 16 }}>
+              <div className="metric sm">
+                <div className="lbl">Distance</div>
+                <div className="val">
+                  {fmt(gate.distanceNm, 1)}
+                  <span className="unit">NM</span>
+                </div>
+              </div>
+              <div className="metric sm">
+                <div className="lbl">Course</div>
+                <div className="val">
+                  {fmt(gate.courseErrorDeg, 1)}
+                  <span className="unit">DEG</span>
+                </div>
+              </div>
+              <div className="metric sm">
+                <div className="lbl">Centreline</div>
+                <div className="val">{landingLateralLabel(gate.lateralDeviationM)}</div>
+              </div>
+              <div className="metric sm">
+                <div className="lbl">Glidepath</div>
+                <div className="val">{landingGlidepathLabel(gate.glidepathDeviationFt)}</div>
+              </div>
+              <div className="metric sm">
+                <div className="lbl">V/S</div>
+                <div className="val">
+                  {fmt(gate.verticalSpeedFpm)}
+                  <span className="unit">FPM</span>
+                </div>
+              </div>
+              <div className="metric sm">
+                <div className="lbl">Bank</div>
+                <div className="val">
+                  {fmt(gate.bankDeg, 1)}
+                  <span className="unit">DEG</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              {gate.issues.length > 0 ? (
+                gate.issues.map((issue) => (
+                  <div key={issue} className="check active">
+                    <div className="box"></div>
+                    <div className="lbl">{issue}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="check done">
+                  <div className="box"></div>
+                  <div className="lbl">No gate issues</div>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="todo-note">Gate was not captured for this landing.</div>
+        )}
       </div>
     </div>
   );
@@ -269,9 +366,9 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
                 <ScoreBar key={i} {...b} />
               ))}
               <div className="todo-note">
-                Score is backend-calculated from real touchdown vertical speed
-                and G-load. TODO: expand backend scoring with centerline,
-                touchdown zone, heading alignment, flare, and bounce.
+                Score is backend-calculated from touchdown quality and stable
+                approach gates when available. TODO: expand backend scoring with
+                touchdown zone, centerline, heading alignment, flare, and bounce.
               </div>
             </div>
           </div>
@@ -290,6 +387,17 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
             <TelemetryTrack history={s.trajectoryHistory} report={r} />
           </div>
         </div>
+      </div>
+
+      <div className="row" style={{ gap: 14 }}>
+        <LandingGateSummary
+          label="1000 FT STABLE GATE"
+          gate={r.stableApproach?.gate1000}
+        />
+        <LandingGateSummary
+          label="500 FT STABLE GATE"
+          gate={r.stableApproach?.gate500}
+        />
       </div>
 
       <div className="row" style={{ gap: 14 }}>
@@ -394,11 +502,12 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
             }}
           >
             <div>
-              <TodoValue /> touchdown distance from threshold requires runway
-              threshold coordinates.
+              <TodoValue /> touchdown distance from threshold is not calculated
+              in landing analysis yet.
             </div>
             <div>
-              <TodoValue /> centerline deviation requires runway geometry.
+              <TodoValue /> touchdown centerline deviation is not calculated in
+              landing analysis yet.
             </div>
             <div>
               <TodoValue /> flare quality and bounce detection require a short

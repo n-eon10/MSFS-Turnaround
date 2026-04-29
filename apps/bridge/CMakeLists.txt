@@ -14,6 +14,7 @@ add_executable(msfs_turnaround_bridge
     src/navdata/NavDatabase.cpp
     src/approach/Geo.cpp
     src/approach/ApproachGuidance.cpp
+    src/approach/StableApproachMonitor.cpp
 )
 
 target_compile_definitions(msfs_turnaround_bridge PRIVATE

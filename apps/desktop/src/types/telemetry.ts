@@ -25,6 +25,22 @@ export type LandingAnalysisPayload = {
   touchdownBankDeg?: number;
   touchdownGForce?: number;
   score: number;
+  stableApproach?: {
+    gate1000: LandingStableApproachGate;
+    gate500: LandingStableApproachGate;
+  };
+};
+
+export type LandingStableApproachGate = {
+  captured: boolean;
+  stable: boolean;
+  issues: string[];
+  distanceNm?: number;
+  courseErrorDeg?: number;
+  lateralDeviationM?: number;
+  glidepathDeviationFt?: number;
+  verticalSpeedFpm?: number;
+  bankDeg?: number;
 };
 
 export type NavAirport = {
@@ -71,6 +87,24 @@ export type ApproachGuidance = {
   issues: string[];
 };
 
+export type ApproachStabilityGate = {
+  type: "approach.stability_gate";
+  gateAglFt: 1000 | 500;
+  airportIdent: string;
+  runwayIdent: string;
+  stable: boolean;
+  radioAltitudeFt: number;
+  distanceNm: number;
+  courseErrorDeg: number;
+  lateralDeviationM: number;
+  glidepathDeviationFt: number;
+  indicatedAirspeedKt: number;
+  verticalSpeedFpm: number;
+  bankDeg: number;
+  pitchDeg: number;
+  issues: string[];
+};
+
 export type BridgeMessage =
   | {
       type: "aircraft.telemetry";
@@ -100,6 +134,7 @@ export type BridgeMessage =
       error?: string;
     }
   | ApproachGuidance
+  | ApproachStabilityGate
   | {
       type: string;
       payload?: unknown;

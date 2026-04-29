@@ -4,6 +4,7 @@ import { useBridgeTelemetry } from "../hooks/useBridgeTelemetry";
 import type {
   AircraftTelemetry,
   ApproachGuidance,
+  ApproachStabilityGate,
   BridgeConnectionStatus,
   LandingAnalysisPayload,
   NavAirport,
@@ -74,6 +75,7 @@ export type LandingReport = {
   score: number;
   letter: "A" | "B" | "C" | "D" | "E";
   breakdown: Array<{ k: string; v: number; weight: number }>;
+  stableApproach?: LandingAnalysisPayload["stableApproach"];
 };
 
 export type SimState = {
@@ -119,6 +121,8 @@ export type SimState = {
     runwayResults: NavRunwayEnd[];
     selectedRunway: NavRunwayEnd | null;
     approachGuidance: ApproachGuidance | null;
+    stabilityGate1000: ApproachStabilityGate | null;
+    stabilityGate500: ApproachStabilityGate | null;
     error: string | null;
   };
   todos: string[];
@@ -233,7 +237,8 @@ function toLandingReport(analysis: LandingAnalysisPayload): LandingReport {
     touchdownGForce: numberOrNull(analysis.touchdownGForce),
     score,
     letter: scoreToLetter(score),
-    breakdown: [{ k: "Touchdown rate / G-load", v: score, weight: 100 }],
+    breakdown: [{ k: "Landing score", v: score, weight: 100 }],
+    stableApproach: analysis.stableApproach,
   };
 }
 
@@ -256,6 +261,8 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
     runwayResults,
     selectedRunway,
     approachGuidance,
+    stabilityGate1000,
+    stabilityGate500,
     navdataError,
     searchAirports,
     requestRunways,
@@ -359,6 +366,8 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
         runwayResults,
         selectedRunway,
         approachGuidance,
+        stabilityGate1000,
+        stabilityGate500,
         error: navdataError,
       },
       todos: TODOS,

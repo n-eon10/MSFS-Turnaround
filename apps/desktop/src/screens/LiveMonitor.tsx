@@ -1,6 +1,7 @@
 import type { UseSimResult } from "../sim/useSim";
 import { fmt, padHdg, sign } from "../sim/format";
 import { StatusPill, TodoValue } from "./common";
+import type { ApproachStabilityGate } from "../types/telemetry";
 
 function valueClass(value: number | null, warnAt: number, badAt: number): string {
   if (value === null) return "";
@@ -32,10 +33,98 @@ function glidepathLabel(valueFt: number): string {
   return `${fmt(Math.abs(valueFt))} FT ${valueFt > 0 ? "HIGH" : "LOW"}`;
 }
 
+function GateSummary({
+  label,
+  gate,
+}: {
+  label: string;
+  gate: ApproachStabilityGate | null;
+}) {
+  return (
+    <div className="card" style={{ flex: 1 }}>
+      <div className="card-head">
+        <span className="lbl">{label}</span>
+        {gate ? (
+          <StatusPill kind={gate.stable ? "good" : "bad"}>
+            {gate.stable ? "STABLE" : "UNSTABLE"}
+          </StatusPill>
+        ) : (
+          <StatusPill kind="warn">NOT CAPTURED</StatusPill>
+        )}
+      </div>
+      <div className="card-body">
+        {gate ? (
+          <>
+            <div className="grid-4" style={{ gap: 16 }}>
+              <div className="metric sm">
+                <div className="lbl">Distance</div>
+                <div className="val">
+                  {fmt(gate.distanceNm, 1)}
+                  <span className="unit">NM</span>
+                </div>
+              </div>
+              <div className="metric sm">
+                <div className="lbl">Course error</div>
+                <div className="val">
+                  {sign(gate.courseErrorDeg)}
+                  {fmt(gate.courseErrorDeg, 1)}
+                  <span className="unit">DEG</span>
+                </div>
+              </div>
+              <div className="metric sm">
+                <div className="lbl">Centreline</div>
+                <div className="val">{lateralLabel(gate.lateralDeviationM)}</div>
+              </div>
+              <div className="metric sm">
+                <div className="lbl">Glidepath</div>
+                <div className="val">{glidepathLabel(gate.glidepathDeviationFt)}</div>
+              </div>
+              <div className="metric sm">
+                <div className="lbl">Vertical speed</div>
+                <div className="val">
+                  {sign(gate.verticalSpeedFpm)}
+                  {fmt(gate.verticalSpeedFpm)}
+                  <span className="unit">FPM</span>
+                </div>
+              </div>
+              <div className="metric sm">
+                <div className="lbl">Bank</div>
+                <div className="val">
+                  {fmt(gate.bankDeg, 1)}
+                  <span className="unit">DEG</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              {gate.issues.length > 0 ? (
+                gate.issues.map((issue) => (
+                  <div key={issue} className="check active">
+                    <div className="box"></div>
+                    <div className="lbl">{issue}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="check done">
+                  <div className="box"></div>
+                  <div className="lbl">No gate issues</div>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="todo-note">Waiting for descent through this gate.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function LiveMonitor({ sim }: { sim: UseSimResult }) {
   const s = sim.state;
   const guidance = s.navdata.approachGuidance;
   const selectedRunway = s.navdata.selectedRunway;
+  const gate1000 = s.navdata.stabilityGate1000;
+  const gate500 = s.navdata.stabilityGate500;
   const telemetryKind = s.hasTelemetry ? "good" : "warn";
   const vsClass =
     s.vs === null ? "" : s.vs < -1100 ? "bad" : s.vs < -900 ? "warn" : "";
@@ -308,6 +397,11 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="row" style={{ gap: 14 }}>
+        <GateSummary label="1000 FT STABLE GATE" gate={gate1000} />
+        <GateSummary label="500 FT STABLE GATE" gate={gate500} />
       </div>
 
       <div className="row" style={{ gap: 14 }}>

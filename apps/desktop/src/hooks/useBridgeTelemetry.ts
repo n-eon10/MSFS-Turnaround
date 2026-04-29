@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   AircraftTelemetry,
   ApproachGuidance,
+  ApproachStabilityGate,
   BridgeConnectionStatus,
   BridgeMessage,
   LandingAnalysisPayload,
@@ -26,9 +27,14 @@ export function useBridgeTelemetry() {
   const [selectedRunway, setSelectedRunway] = useState<NavRunwayEnd | null>(null);
   const [approachGuidance, setApproachGuidance] =
     useState<ApproachGuidance | null>(null);
+  const [stabilityGate1000, setStabilityGate1000] =
+    useState<ApproachStabilityGate | null>(null);
+  const [stabilityGate500, setStabilityGate500] =
+    useState<ApproachStabilityGate | null>(null);
   const [navdataError, setNavdataError] = useState<string | null>(null);
   const [lastMessageAt, setLastMessageAt] = useState<Date | null>(null);
   const pendingSelectedRunwayRef = useRef<NavRunwayEnd | null>(null);
+  const previousOnGroundRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     let shouldReconnect = true;
@@ -57,7 +63,15 @@ export function useBridgeTelemetry() {
           const message = JSON.parse(event.data) as BridgeMessage;
 
           if (message.type === "aircraft.telemetry") {
-            setTelemetry(message.payload as AircraftTelemetry);
+            const telemetryPayload = message.payload as AircraftTelemetry;
+            const isOnGround = telemetryPayload.simOnGround >= 0.5;
+            if (previousOnGroundRef.current === true && !isOnGround) {
+              setStabilityGate1000(null);
+              setStabilityGate500(null);
+            }
+            previousOnGroundRef.current = isOnGround;
+
+            setTelemetry(telemetryPayload);
             setLastMessageAt(new Date());
           }
 
@@ -95,6 +109,8 @@ export function useBridgeTelemetry() {
             if (result.ok) {
               setSelectedRunway(pendingSelectedRunwayRef.current);
               setApproachGuidance(null);
+              setStabilityGate1000(null);
+              setStabilityGate500(null);
               setNavdataError(null);
             } else {
               setNavdataError(result.error ?? "Runway selection failed");
@@ -103,6 +119,16 @@ export function useBridgeTelemetry() {
 
           if (message.type === "approach.guidance") {
             setApproachGuidance(message as ApproachGuidance);
+          }
+
+          if (message.type === "approach.stability_gate") {
+            const gate = message as ApproachStabilityGate;
+            if (gate.gateAglFt === 1000) {
+              setStabilityGate1000(gate);
+            }
+            if (gate.gateAglFt === 500) {
+              setStabilityGate500(gate);
+            }
           }
         } catch {
           // Ignore malformed bridge messages for now.
@@ -190,6 +216,8 @@ export function useBridgeTelemetry() {
     (runway: NavRunwayEnd) => {
       pendingSelectedRunwayRef.current = runway;
       setApproachGuidance(null);
+      setStabilityGate1000(null);
+      setStabilityGate500(null);
       setNavdataError(null);
 
       sendBridgeMessage({
@@ -211,6 +239,8 @@ export function useBridgeTelemetry() {
     runwayResults,
     selectedRunway,
     approachGuidance,
+    stabilityGate1000,
+    stabilityGate500,
     navdataError,
     searchAirports,
     requestRunways,

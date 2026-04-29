@@ -3,11 +3,13 @@
 
 #include "msfs_turnaround/landing_analysis.hpp"
 #include "approach/ApproachGuidance.hpp"
+#include "approach/StableApproachMonitor.hpp"
 #include "navdata/NavDatabase.hpp"
 
 #include <ixwebsocket/IXNetSystem.h>
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <functional>
@@ -42,7 +44,72 @@ std::string telemetryToJson(const msfs_turnaround::AircraftTelemetry& telemetry)
     return message.dump();
 }
 
-std::string landingAnalysisToJson(const msfs_turnaround::LandingAnalysis& analysis) {
+double landingScoreWithStableApproach(
+    const msfs_turnaround::LandingAnalysis& analysis,
+    bool includeStableApproach,
+    const std::optional<msfs_turnaround::StableApproachGateResult>& gate1000,
+    const std::optional<msfs_turnaround::StableApproachGateResult>& gate500
+) {
+    double score = analysis.score;
+
+    if (includeStableApproach) {
+        if (gate1000) {
+            if (!gate1000->stable) {
+                score -= 10.0;
+            }
+        } else {
+            score -= 5.0;
+        }
+
+        if (gate500) {
+            if (!gate500->stable) {
+                score -= 15.0;
+            }
+        } else {
+            score -= 5.0;
+        }
+    }
+
+    return std::clamp(score, 0.0, 100.0);
+}
+
+nlohmann::json landingGateToJson(
+    const std::optional<msfs_turnaround::StableApproachGateResult>& gate
+) {
+    if (!gate) {
+        return {
+            {"captured", false},
+            {"stable", false},
+            {"issues", nlohmann::json::array()}
+        };
+    }
+
+    return {
+        {"captured", true},
+        {"stable", gate->stable},
+        {"issues", gate->issues},
+        {"distanceNm", gate->distanceNm},
+        {"courseErrorDeg", gate->courseErrorDeg},
+        {"lateralDeviationM", gate->lateralDeviationM},
+        {"glidepathDeviationFt", gate->glidepathDeviationFt},
+        {"verticalSpeedFpm", gate->verticalSpeedFpm},
+        {"bankDeg", gate->bankDeg}
+    };
+}
+
+std::string landingAnalysisToJson(
+    const msfs_turnaround::LandingAnalysis& analysis,
+    bool includeStableApproach,
+    const std::optional<msfs_turnaround::StableApproachGateResult>& gate1000,
+    const std::optional<msfs_turnaround::StableApproachGateResult>& gate500
+) {
+    const double score = landingScoreWithStableApproach(
+        analysis,
+        includeStableApproach,
+        gate1000,
+        gate500
+    );
+
     nlohmann::json message = {
         {"type", "landing.analysis"},
         {"payload", {
@@ -54,9 +121,16 @@ std::string landingAnalysisToJson(const msfs_turnaround::LandingAnalysis& analys
             {"touchdownPitchDeg", analysis.touchdownPitchDeg},
             {"touchdownBankDeg", analysis.touchdownBankDeg},
             {"touchdownGForce", analysis.touchdownGForce},
-            {"score", analysis.score}
+            {"score", score}
         }}
     };
+
+    if (includeStableApproach) {
+        message["payload"]["stableApproach"] = {
+            {"gate1000", landingGateToJson(gate1000)},
+            {"gate500", landingGateToJson(gate500)}
+        };
+    }
 
     return message.dump();
 }
@@ -79,6 +153,30 @@ std::string approachGuidanceToJson(
         {"glidepathDeviationFt", guidance.glidepathDeviationFt},
         {"stable", guidance.stable},
         {"issues", guidance.issues}
+    };
+
+    return message.dump();
+}
+
+std::string stabilityGateToJson(
+    const msfs_turnaround::StableApproachGateResult& gate
+) {
+    nlohmann::json message = {
+        {"type", "approach.stability_gate"},
+        {"gateAglFt", gate.gateAglFt},
+        {"airportIdent", gate.airportIdent},
+        {"runwayIdent", gate.runwayIdent},
+        {"stable", gate.stable},
+        {"radioAltitudeFt", gate.radioAltitudeFt},
+        {"distanceNm", gate.distanceNm},
+        {"courseErrorDeg", gate.courseErrorDeg},
+        {"lateralDeviationM", gate.lateralDeviationM},
+        {"glidepathDeviationFt", gate.glidepathDeviationFt},
+        {"indicatedAirspeedKt", gate.indicatedAirspeedKt},
+        {"verticalSpeedFpm", gate.verticalSpeedFpm},
+        {"bankDeg", gate.bankDeg},
+        {"pitchDeg", gate.pitchDeg},
+        {"issues", gate.issues}
     };
 
     return message.dump();
@@ -168,6 +266,7 @@ void handleClientMessage(
     msfs_turnaround::NavDatabase& navDatabase,
     std::mutex& activeRunwayMutex,
     std::optional<msfs_turnaround::RunwayEnd>& activeRunway,
+    msfs_turnaround::StableApproachMonitor& stableApproachMonitor,
     const std::function<void(const std::string&)>& send
 ) {
     nlohmann::json message;
@@ -252,6 +351,7 @@ void handleClientMessage(
         {
             std::lock_guard<std::mutex> lock(activeRunwayMutex);
             activeRunway = runwayEnd;
+            stableApproachMonitor.resetForNewApproach();
         }
 
         response["ok"] = true;
@@ -272,10 +372,11 @@ int main(int argc, char** argv) {
 
     std::mutex activeRunwayMutex;
     std::optional<msfs_turnaround::RunwayEnd> activeRunway;
+    msfs_turnaround::StableApproachMonitor stableApproachMonitor;
 
     msfs_turnaround::WebSocketServer webSocketServer(48787);
     webSocketServer.setClientMessageHandler(
-        [&navDatabase, &activeRunwayMutex, &activeRunway](
+        [&navDatabase, &activeRunwayMutex, &activeRunway, &stableApproachMonitor](
             const std::string& rawMessage,
             const std::function<void(const std::string&)>& send
         ) {
@@ -284,6 +385,7 @@ int main(int argc, char** argv) {
                 navDatabase,
                 activeRunwayMutex,
                 activeRunway,
+                stableApproachMonitor,
                 send
             );
         }
@@ -303,19 +405,31 @@ int main(int argc, char** argv) {
     }
 
     msfs_turnaround::LandingDetector landingDetector;
+    bool hasSeenGroundState = false;
+    bool previousOnGround = false;
 
     simConnectClient.setTelemetryCallback(
         [
             &webSocketServer,
             &landingDetector,
             &activeRunwayMutex,
-            &activeRunway
+            &activeRunway,
+            &stableApproachMonitor,
+            &hasSeenGroundState,
+            &previousOnGround
         ](const msfs_turnaround::AircraftTelemetry& telemetry) {
             webSocketServer.broadcast(telemetryToJson(telemetry));
 
             std::optional<msfs_turnaround::RunwayEnd> runwayForGuidance;
             {
                 std::lock_guard<std::mutex> lock(activeRunwayMutex);
+                const bool isOnGround = telemetry.simOnGround >= 0.5;
+                if (hasSeenGroundState && previousOnGround && !isOnGround) {
+                    stableApproachMonitor.resetForNewApproach();
+                }
+                previousOnGround = isOnGround;
+                hasSeenGroundState = true;
+
                 runwayForGuidance = activeRunway;
             }
 
@@ -326,11 +440,38 @@ int main(int argc, char** argv) {
                         *runwayForGuidance
                     );
                 webSocketServer.broadcast(approachGuidanceToJson(guidance));
+
+                std::optional<msfs_turnaround::StableApproachGateResult> capturedGate;
+                {
+                    std::lock_guard<std::mutex> lock(activeRunwayMutex);
+                    capturedGate = stableApproachMonitor.update(telemetry, guidance);
+                }
+
+                if (capturedGate) {
+                    webSocketServer.broadcast(stabilityGateToJson(*capturedGate));
+                }
             }
 
             if (landingDetector.update(telemetry)) {
                 const auto& analysis = landingDetector.latestLanding();
-                webSocketServer.broadcast(landingAnalysisToJson(analysis));
+                std::optional<msfs_turnaround::StableApproachGateResult> gate1000;
+                std::optional<msfs_turnaround::StableApproachGateResult> gate500;
+                bool includeStableApproach = false;
+                {
+                    std::lock_guard<std::mutex> lock(activeRunwayMutex);
+                    includeStableApproach = activeRunway.has_value();
+                    gate1000 = stableApproachMonitor.gate1000();
+                    gate500 = stableApproachMonitor.gate500();
+                }
+
+                webSocketServer.broadcast(
+                    landingAnalysisToJson(
+                        analysis,
+                        includeStableApproach,
+                        gate1000,
+                        gate500
+                    )
+                );
 
                 std::cout
                     << "Landing detected: VS="
@@ -338,7 +479,12 @@ int main(int argc, char** argv) {
                     << " FPM IAS="
                     << analysis.touchdownAirspeedKt
                     << " KT SCORE="
-                    << analysis.score
+                    << landingScoreWithStableApproach(
+                        analysis,
+                        includeStableApproach,
+                        gate1000,
+                        gate500
+                    )
                     << std::endl;
             }
         }
