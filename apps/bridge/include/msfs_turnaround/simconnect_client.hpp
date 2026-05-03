@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aircraft/AircraftIdentity.hpp"
 #include "msfs_turnaround/aircraft_telemetry.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -21,10 +22,12 @@ struct ApproachScenario;
 class SimConnectClient {
 public:
     using TelemetryCallback = std::function<void(const AircraftTelemetry&)>;
+    using AircraftIdentityCallback = std::function<void(const AircraftIdentity&)>;
 
     bool connect();
     bool isConnected() const;
     void requestAircraftTelemetry();
+    void requestAircraftIdentity();
     void poll();
     void close();
 
@@ -52,16 +55,19 @@ public:
     );
 
     void setTelemetryCallback(TelemetryCallback callback);
+    void setAircraftIdentityCallback(AircraftIdentityCallback callback);
 
 private:
     HANDLE simConnect_ = nullptr;
     TelemetryCallback telemetryCallback_;
+    AircraftIdentityCallback aircraftIdentityCallback_;
     mutable std::recursive_mutex simConnectMutex_;
     bool initialPositionDefinitionRegistered_ = false;
     bool directPositionDefinitionRegistered_ = false;
     bool bodyVelocityDefinitionRegistered_ = false;
     bool bodyRotationVelocityDefinitionRegistered_ = false;
     bool aircraftConfigurationDefinitionRegistered_ = false;
+    bool aircraftIdentityDefinitionRegistered_ = false;
     bool pauseEventsRegistered_ = false;
     bool freezeEventsRegistered_ = false;
 
@@ -72,10 +78,12 @@ private:
         DirectPosition = 4,
         BodyVelocity = 5,
         BodyRotationVelocity = 6,
+        AircraftIdentity = 7,
     };
 
     enum class DataRequestId : DWORD {
         AircraftTelemetry = 1,
+        AircraftIdentity = 2,
     };
 
     enum class ClientEventId : DWORD {
@@ -100,6 +108,7 @@ private:
     bool registerInitialPositionDefinition(std::string& error);
     bool registerDirectPositionDefinition(std::string& error);
     bool registerAircraftConfigurationDefinition(std::string& error);
+    bool registerAircraftIdentityDefinition(std::string& error);
     bool registerPauseEvents(std::string& error);
     bool registerFreezeEvents(std::string& error);
     bool registerConfigurationEvents(std::string& error);
@@ -123,6 +132,7 @@ private:
     static void CALLBACK dispatchProc(SIMCONNECT_RECV* data, DWORD cbData, void* context);
     void handleDispatch(SIMCONNECT_RECV* data);
     void handleAircraftTelemetry(const SIMCONNECT_RECV_SIMOBJECT_DATA* objectData);
+    void handleAircraftIdentity(const SIMCONNECT_RECV_SIMOBJECT_DATA* objectData);
 };
 
 }

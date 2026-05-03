@@ -24,6 +24,14 @@ bool WebSocketServer::start() {
                 std::cout << "Frontend connected: "
                           << connectionState->getRemoteIp()
                           << std::endl;
+
+                if (clientOpenHandler_) {
+                    clientOpenHandler_(
+                        [&webSocket](const std::string& response) {
+                            webSocket.send(response);
+                        }
+                    );
+                }
             }
 
             if (message->type == ix::WebSocketMessageType::Close) {
@@ -90,6 +98,10 @@ void WebSocketServer::broadcast(const std::string& message) {
 
 void WebSocketServer::setClientMessageHandler(ClientMessageHandler handler) {
     clientMessageHandler_ = std::move(handler);
+}
+
+void WebSocketServer::setClientOpenHandler(ClientOpenHandler handler) {
+    clientOpenHandler_ = std::move(handler);
 }
 
 }

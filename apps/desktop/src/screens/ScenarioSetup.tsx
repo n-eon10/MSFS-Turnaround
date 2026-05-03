@@ -145,6 +145,14 @@ function spawnIsActive(state: SpawnLifecycleState | undefined) {
   );
 }
 
+function adapterDisplayName(name: string | undefined) {
+  if (!name) {
+    return "Unknown";
+  }
+
+  return name.replace(/AircraftAdapter$/, "");
+}
+
 export function ScenarioSetup({
   sim,
   onSpawnSuccess,
@@ -157,6 +165,7 @@ export function ScenarioSetup({
   const lastResult = s.scenario.lastSpawnResult;
   const latestStatus = s.scenario.status;
   const latestSpawnStatus = s.scenario.spawnStatus;
+  const aircraftAdapter = s.aircraftAdapter;
   const [selectedPresetId, setSelectedPresetId] = useState("standard_final");
   const [distanceNm, setDistanceNm] = useState(8);
   const [glidepathDeg, setGlidepathDeg] = useState(3);
@@ -443,6 +452,28 @@ export function ScenarioSetup({
                 </div>
                 <div className="todo-note" style={{ marginTop: 8 }}>
                   Spawn freezes, configures, verifies, then waits for release.
+                </div>
+              </div>
+              <div className="metric sm" style={{ minWidth: 260 }}>
+                <div className="lbl">Aircraft / adapter</div>
+                <div className="val mono" style={{ fontSize: 18 }}>
+                  {aircraftAdapter?.identity.title ?? "Unknown"}
+                </div>
+                <div className="sub">
+                  Adapter: {adapterDisplayName(aircraftAdapter?.adapter.name)}
+                </div>
+                <div className="todo-note" style={{ marginTop: 8 }}>
+                  Landing config:{" "}
+                  {aircraftAdapter?.adapter.capabilities.canVerifyGear ||
+                  aircraftAdapter?.adapter.capabilities.canVerifyFlaps
+                    ? "Verified where possible"
+                    : "Best effort"}
+                </div>
+                <div className="todo-note" style={{ marginTop: 8 }}>
+                  FMC/FMS setup:{" "}
+                  {aircraftAdapter?.adapter.capabilities.canConfigureFms
+                    ? "Supported"
+                    : "Not supported by generic adapter"}
                 </div>
               </div>
               <div className="metric sm">

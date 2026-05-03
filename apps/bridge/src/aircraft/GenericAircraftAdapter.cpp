@@ -59,7 +59,16 @@ bool GenericAircraftAdapter::supportsAdvancedConfig() const {
 }
 
 std::string GenericAircraftAdapter::name() const {
-    return "Generic SimConnect Aircraft";
+    return "GenericAircraftAdapter";
+}
+
+AircraftAdapterCapabilities GenericAircraftAdapter::capabilities() const {
+    AircraftAdapterCapabilities capabilities;
+    capabilities.canSetGear = true;
+    capabilities.canSetFlaps = true;
+    capabilities.canVerifyFlaps = true;
+    capabilities.canVerifyGear = true;
+    return capabilities;
 }
 
 }

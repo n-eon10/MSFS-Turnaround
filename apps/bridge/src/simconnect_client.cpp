@@ -53,6 +53,13 @@ struct DirectAircraftPosition {
     double headingDeg = 0.0;
 };
 
+struct AircraftIdentitySimVars {
+    char title[256] {};
+    char atcType[256] {};
+    char atcModel[256] {};
+    double simOnGround = 0.0;
+};
+
 const char* simConnectExceptionName(DWORD exception) {
     switch (exception) {
         case SIMCONNECT_EXCEPTION_NONE:
@@ -322,6 +329,35 @@ void SimConnectClient::requestAircraftTelemetry() {
     );
 }
 
+void SimConnectClient::requestAircraftIdentity() {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        return;
+    }
+
+    std::string error;
+    if (!registerAircraftIdentityDefinition(error)) {
+        std::cerr << error << std::endl;
+        return;
+    }
+
+    const HRESULT result = SimConnect_RequestDataOnSimObject(
+        simConnect_,
+        static_cast<DWORD>(DataRequestId::AircraftIdentity),
+        static_cast<DWORD>(DataDefinitionId::AircraftIdentity),
+        SIMCONNECT_OBJECT_ID_USER,
+        SIMCONNECT_PERIOD_SECOND,
+        SIMCONNECT_DATA_REQUEST_FLAG_CHANGED,
+        0,
+        1,
+        0
+    );
+
+    if (FAILED(result)) {
+        std::cerr << hresultMessage("Requesting aircraft identity", result) << std::endl;
+    }
+}
+
 void SimConnectClient::poll() {
     std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
     if (simConnect_ == nullptr) {
@@ -341,9 +377,66 @@ void SimConnectClient::close() {
         bodyVelocityDefinitionRegistered_ = false;
         bodyRotationVelocityDefinitionRegistered_ = false;
         aircraftConfigurationDefinitionRegistered_ = false;
+        aircraftIdentityDefinitionRegistered_ = false;
         pauseEventsRegistered_ = false;
         freezeEventsRegistered_ = false;
     }
+}
+
+bool SimConnectClient::registerAircraftIdentityDefinition(std::string& error) {
+    if (aircraftIdentityDefinitionRegistered_) {
+        return true;
+    }
+
+    HRESULT result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftIdentity),
+        "TITLE",
+        "NULL",
+        SIMCONNECT_DATATYPE_STRING256
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering aircraft title data definition", result);
+        return false;
+    }
+
+    result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftIdentity),
+        "ATC TYPE",
+        "NULL",
+        SIMCONNECT_DATATYPE_STRING256
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering ATC type data definition", result);
+        return false;
+    }
+
+    result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftIdentity),
+        "ATC MODEL",
+        "NULL",
+        SIMCONNECT_DATATYPE_STRING256
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering ATC model data definition", result);
+        return false;
+    }
+
+    result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftIdentity),
+        "SIM ON GROUND",
+        "bool"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering identity ground-state data definition", result);
+        return false;
+    }
+
+    aircraftIdentityDefinitionRegistered_ = true;
+    return true;
 }
 
 bool SimConnectClient::registerInitialPositionDefinition(std::string& error) {
@@ -1122,6 +1215,10 @@ void SimConnectClient::handleDispatch(SIMCONNECT_RECV* data) {
                 handleAircraftTelemetry(objectData);
             }
 
+            if (objectData->dwRequestID == static_cast<DWORD>(DataRequestId::AircraftIdentity)) {
+                handleAircraftIdentity(objectData);
+            }
+
             break;
         }
 
@@ -1175,6 +1272,23 @@ void SimConnectClient::handleAircraftTelemetry(const SIMCONNECT_RECV_SIMOBJECT_D
 
 void SimConnectClient::setTelemetryCallback(TelemetryCallback callback) {
     telemetryCallback_ = std::move(callback);
+}
+
+void SimConnectClient::handleAircraftIdentity(const SIMCONNECT_RECV_SIMOBJECT_DATA* objectData) {
+    const auto* rawIdentity = reinterpret_cast<const AircraftIdentitySimVars*>(&objectData->dwData);
+
+    AircraftIdentity identity;
+    identity.title = rawIdentity->title[0] != '\0' ? rawIdentity->title : "Unknown";
+    identity.atcType = rawIdentity->atcType[0] != '\0' ? rawIdentity->atcType : "Unknown";
+    identity.atcModel = rawIdentity->atcModel[0] != '\0' ? rawIdentity->atcModel : "Unknown";
+
+    if (aircraftIdentityCallback_) {
+        aircraftIdentityCallback_(identity);
+    }
+}
+
+void SimConnectClient::setAircraftIdentityCallback(AircraftIdentityCallback callback) {
+    aircraftIdentityCallback_ = std::move(callback);
 }
 
 }

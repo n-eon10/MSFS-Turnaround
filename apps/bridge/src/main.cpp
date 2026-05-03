@@ -5,7 +5,7 @@
 #include "approach/ApproachGuidance.hpp"
 #include "approach/Geo.hpp"
 #include "approach/StableApproachMonitor.hpp"
-#include "aircraft/GenericAircraftAdapter.hpp"
+#include "aircraft/AircraftAdapterRegistry.hpp"
 #include "navdata/NavDatabase.hpp"
 #include "scenario/ScenarioSpawner.hpp"
 #include "spawn/ApproachSpawnManager.hpp"
@@ -54,6 +54,52 @@ std::string telemetryToJson(const msfs_turnaround::AircraftTelemetry& telemetry)
             {"latitudeLongitudeFreezeOn", telemetry.latitudeLongitudeFreezeOn},
             {"altitudeFreezeOn", telemetry.altitudeFreezeOn},
             {"attitudeFreezeOn", telemetry.attitudeFreezeOn}
+        }}
+    };
+
+    return message.dump();
+}
+
+nlohmann::json aircraftIdentityToJson(const msfs_turnaround::AircraftIdentity& identity) {
+    return {
+        {"title", identity.title},
+        {"atcType", identity.atcType},
+        {"atcModel", identity.atcModel},
+        {"detectedFamily", identity.detectedFamily},
+        {"detectedVariant", identity.detectedVariant},
+        {"isKnownAircraft", identity.isKnownAircraft}
+    };
+}
+
+nlohmann::json adapterCapabilitiesToJson(
+    const msfs_turnaround::AircraftAdapterCapabilities& capabilities
+) {
+    return {
+        {"canSetGear", capabilities.canSetGear},
+        {"canSetFlaps", capabilities.canSetFlaps},
+        {"canSetSpoilers", capabilities.canSetSpoilers},
+        {"canSetAutobrake", capabilities.canSetAutobrake},
+        {"canSetLandingLights", capabilities.canSetLandingLights},
+        {"canSetAutopilot", capabilities.canSetAutopilot},
+        {"canSetNavRadio", capabilities.canSetNavRadio},
+        {"canSetApproachMode", capabilities.canSetApproachMode},
+        {"canConfigureFms", capabilities.canConfigureFms},
+        {"canVerifyFlaps", capabilities.canVerifyFlaps},
+        {"canVerifyGear", capabilities.canVerifyGear},
+        {"requiresAircraftSpecificSdk", capabilities.requiresAircraftSpecificSdk}
+    };
+}
+
+std::string aircraftAdapterToJson(
+    const msfs_turnaround::AircraftIdentity& identity,
+    const msfs_turnaround::AircraftAdapter& adapter
+) {
+    nlohmann::json message = {
+        {"type", "aircraft.adapter"},
+        {"identity", aircraftIdentityToJson(identity)},
+        {"adapter", {
+            {"name", adapter.name()},
+            {"capabilities", adapterCapabilitiesToJson(adapter.capabilities())}
         }}
     };
 
@@ -626,7 +672,9 @@ int main(int argc, char** argv) {
     std::optional<AircraftTelemetry> latestTelemetry;
     msfs_turnaround::StableApproachMonitor stableApproachMonitor;
     msfs_turnaround::SimConnectClient simConnectClient;
-    msfs_turnaround::GenericAircraftAdapter genericAircraftAdapter;
+    msfs_turnaround::AircraftAdapterRegistry aircraftAdapterRegistry;
+    std::mutex latestAircraftAdapterMessageMutex;
+    std::optional<std::string> latestAircraftAdapterMessage;
     msfs_turnaround::ScenarioSpawner scenarioSpawner(
         navDatabase,
         simConnectClient
@@ -634,13 +682,25 @@ int main(int argc, char** argv) {
     msfs_turnaround::ApproachSpawnManager spawnManager(
         scenarioSpawner,
         simConnectClient,
-        genericAircraftAdapter
+        aircraftAdapterRegistry
     );
 
     msfs_turnaround::WebSocketServer webSocketServer(48787);
     spawnManager.setStatusCallback(
         [&webSocketServer](const msfs_turnaround::SpawnStatus& status) {
             webSocketServer.broadcast(spawnStatusToJson(status));
+        }
+    );
+
+    webSocketServer.setClientOpenHandler(
+        [
+            &latestAircraftAdapterMessageMutex,
+            &latestAircraftAdapterMessage
+        ](const std::function<void(const std::string&)>& send) {
+            std::lock_guard<std::mutex> lock(latestAircraftAdapterMessageMutex);
+            if (latestAircraftAdapterMessage) {
+                send(*latestAircraftAdapterMessage);
+            }
         }
     );
 
@@ -679,6 +739,29 @@ int main(int argc, char** argv) {
     msfs_turnaround::LandingDetector landingDetector;
     bool hasSeenGroundState = false;
     bool previousOnGround = false;
+
+    simConnectClient.setAircraftIdentityCallback(
+        [
+            &webSocketServer,
+            &aircraftAdapterRegistry,
+            &latestAircraftAdapterMessageMutex,
+            &latestAircraftAdapterMessage
+        ](const msfs_turnaround::AircraftIdentity& identity) {
+            if (!aircraftAdapterRegistry.updateIdentity(identity)) {
+                return;
+            }
+
+            const std::string adapterMessage =
+                aircraftAdapterToJson(aircraftAdapterRegistry.identity(), aircraftAdapterRegistry);
+
+            {
+                std::lock_guard<std::mutex> lock(latestAircraftAdapterMessageMutex);
+                latestAircraftAdapterMessage = adapterMessage;
+            }
+
+            webSocketServer.broadcast(adapterMessage);
+        }
+    );
 
     simConnectClient.setTelemetryCallback(
         [
@@ -772,7 +855,7 @@ int main(int argc, char** argv) {
         }
     );
 
-    auto connectToSimulator = [&simConnectClient]() {
+    auto connectToSimulator = [&simConnectClient, &aircraftAdapterRegistry]() {
         if (!simConnectClient.connect()) {
             std::cerr
                 << "MSFS is not connected yet; bridge WebSocket remains available."
@@ -780,7 +863,9 @@ int main(int argc, char** argv) {
             return false;
         }
 
+        aircraftAdapterRegistry.reset();
         simConnectClient.requestAircraftTelemetry();
+        simConnectClient.requestAircraftIdentity();
         std::cout << "Streaming telemetry to WebSocket clients." << std::endl;
         return true;
     };

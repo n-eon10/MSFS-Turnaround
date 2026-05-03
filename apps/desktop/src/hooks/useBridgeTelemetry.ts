@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  AircraftAdapterStatus,
   AircraftTelemetry,
   ApproachGuidance,
   ApproachStabilityGate,
@@ -45,6 +46,8 @@ export function useBridgeTelemetry() {
     useState<SpawnFinalResult | null>(null);
   const [scenarioStatus, setScenarioStatus] = useState<ScenarioStatus | null>(null);
   const [spawnStatus, setSpawnStatus] = useState<SpawnStatus | null>(null);
+  const [aircraftAdapterStatus, setAircraftAdapterStatus] =
+    useState<AircraftAdapterStatus | null>(null);
   const [lastMessageAt, setLastMessageAt] = useState<Date | null>(null);
   const pendingSelectedRunwayRef = useRef<NavRunwayEnd | null>(null);
   const previousOnGroundRef = useRef<boolean | null>(null);
@@ -90,6 +93,11 @@ export function useBridgeTelemetry() {
 
           if (message.type === "landing.analysis") {
             setLandingAnalysis(message.payload as LandingAnalysisPayload);
+            setLastMessageAt(new Date());
+          }
+
+          if (message.type === "aircraft.adapter") {
+            setAircraftAdapterStatus(message as AircraftAdapterStatus);
             setLastMessageAt(new Date());
           }
 
@@ -337,6 +345,7 @@ export function useBridgeTelemetry() {
     lastSpawnResult,
     scenarioStatus,
     spawnStatus,
+    aircraftAdapterStatus,
     searchAirports,
     requestRunways,
     selectRunway,

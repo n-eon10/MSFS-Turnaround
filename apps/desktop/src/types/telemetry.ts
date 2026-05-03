@@ -189,6 +189,37 @@ export type SpawnStatus = {
   warnings?: string[];
 };
 
+export type AircraftAdapterCapabilities = {
+  canSetGear: boolean;
+  canSetFlaps: boolean;
+  canSetSpoilers: boolean;
+  canSetAutobrake: boolean;
+  canSetLandingLights: boolean;
+  canSetAutopilot: boolean;
+  canSetNavRadio: boolean;
+  canSetApproachMode: boolean;
+  canConfigureFms: boolean;
+  canVerifyFlaps: boolean;
+  canVerifyGear: boolean;
+  requiresAircraftSpecificSdk: boolean;
+};
+
+export type AircraftAdapterStatus = {
+  type: "aircraft.adapter";
+  identity: {
+    title: string;
+    atcType: string;
+    atcModel: string;
+    detectedFamily: string;
+    detectedVariant: string;
+    isKnownAircraft: boolean;
+  };
+  adapter: {
+    name: string;
+    capabilities: AircraftAdapterCapabilities;
+  };
+};
+
 export type BridgeMessage =
   | {
       type: "aircraft.telemetry";
@@ -221,6 +252,7 @@ export type BridgeMessage =
   | ApproachStabilityGate
   | ScenarioStatus
   | SpawnStatus
+  | AircraftAdapterStatus
   | SpawnFinalResult
   | {
       type: string;

@@ -16,6 +16,7 @@ public:
         const std::string&,
         const std::function<void(const std::string&)>&
     )>;
+    using ClientOpenHandler = std::function<void(const std::function<void(const std::string&)>&)>;
 
     explicit WebSocketServer(int port);
 
@@ -23,6 +24,7 @@ public:
     void stop();
     void broadcast(const std::string& message);
     void setClientMessageHandler(ClientMessageHandler handler);
+    void setClientOpenHandler(ClientOpenHandler handler);
 
 private:
     int port_;
@@ -30,6 +32,7 @@ private:
     std::mutex clientsMutex_;
     std::unordered_set<ix::WebSocket*> clients_;
     ClientMessageHandler clientMessageHandler_;
+    ClientOpenHandler clientOpenHandler_;
 };
 
 }

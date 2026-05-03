@@ -142,6 +142,27 @@ function LandingGateSummary({
   );
 }
 
+function runwayRelative(
+  lat: number,
+  lon: number,
+  refLat: number,
+  refLon: number,
+  hdgDeg: number
+): [number, number] {
+  const dLat = (lat - refLat) * 111319;
+  const dLon = (lon - refLon) * 111319 * Math.cos((refLat * Math.PI) / 180);
+  const H = (hdgDeg * Math.PI) / 180;
+  const along = -(dLon * Math.sin(H) + dLat * Math.cos(H));
+  const lateral = dLon * Math.cos(H) - dLat * Math.sin(H);
+  return [along, lateral];
+}
+
+function altColor(altAgl: number | null, maxAlt: number): string {
+  if (altAgl === null || maxAlt <= 0) return "var(--accent)";
+  const t = Math.max(0, Math.min(1, altAgl / maxAlt));
+  return `hsl(${Math.round(20 + t * 200)}, 75%, 62%)`;
+}
+
 function TelemetryTrack({
   history,
   report,
@@ -149,106 +170,287 @@ function TelemetryTrack({
   history: TrajectoryRecord[];
   report: LandingReport;
 }) {
-  const points = [
-    ...history.map((h) => ({
-      lat: h.latitudeDeg,
-      lon: h.longitudeDeg,
-      touchdown: false,
-    })),
-    {
-      lat: report.touchdownLatitudeDeg,
-      lon: report.touchdownLongitudeDeg,
-      touchdown: true,
-    },
-  ].filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+  const refLat = report.touchdownLatitudeDeg;
+  const refLon = report.touchdownLongitudeDeg;
+  const hdg = report.touchdownHeadingDeg;
 
-  if (points.length < 2) {
+  type Pt = { along: number; lateral: number; altAGL: number | null };
+
+  const pts: Pt[] = history
+    .map((h) => {
+      const [along, lateral] = runwayRelative(
+        h.latitudeDeg,
+        h.longitudeDeg,
+        refLat,
+        refLon,
+        hdg
+      );
+      return { along, lateral, altAGL: h.altAGL };
+    })
+    .filter((p) => isFinite(p.along) && isFinite(p.lateral));
+
+  if (pts.length < 2) {
     return (
       <div className="todo-note">
-        Waiting for enough live telemetry samples to draw the real aircraft track.
+        Waiting for enough live telemetry samples to draw the approach track.
       </div>
     );
   }
 
+  const maxAlt = Math.max(...pts.map((p) => p.altAGL ?? 0), 0);
+
+  function findAltCrossing(targetFt: number): Pt | null {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i],
+        b = pts[i + 1];
+      if (a.altAGL === null || b.altAGL === null) continue;
+      if (a.altAGL >= targetFt && b.altAGL < targetFt) {
+        const t = (targetFt - a.altAGL) / (b.altAGL - a.altAGL);
+        return {
+          along: a.along + t * (b.along - a.along),
+          lateral: a.lateral + t * (b.lateral - a.lateral),
+          altAGL: targetFt,
+        };
+      }
+    }
+    return null;
+  }
+
+  const gate1000pt = findAltCrossing(1000);
+  const gate500pt = findAltCrossing(500);
+
+  const alongs = pts.map((p) => p.along);
+  const laterals = pts.map((p) => p.lateral);
+  const maxAlong = Math.max(...alongs, 500);
+  const minAlong = Math.min(...alongs, 0);
+  const lateralExtent = Math.max(Math.max(...laterals.map(Math.abs)), 150);
+  const alongRange = Math.max(maxAlong - minAlong, 1);
+
   const W = 1200;
-  const H = 280;
-  const pad = 30;
-  const lats = points.map((p) => p.lat);
-  const lons = points.map((p) => p.lon);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-  const latSpan = Math.max(0.00001, maxLat - minLat);
-  const lonSpan = Math.max(0.00001, maxLon - minLon);
-  const x = (lon: number) => pad + ((lon - minLon) / lonSpan) * (W - pad * 2);
-  const y = (lat: number) => H - pad - ((lat - minLat) / latSpan) * (H - pad * 2);
-  const path =
-    "M " +
-    points
-      .filter((p) => !p.touchdown)
-      .map((p) => `${x(p.lon).toFixed(1)} ${y(p.lat).toFixed(1)}`)
-      .join(" L ");
-  const touchdown = points.find((p) => p.touchdown) ?? points[points.length - 1];
+  const H = 360;
+  const padLeft = 80;
+  const padRight = 40;
+  const padTop = 30;
+  const padBottom = 70;
+  const usableW = W - padLeft - padRight;
+  const usableH = H - padTop - padBottom;
+
+  const svgX = (lat: number) =>
+    padLeft + ((lat + lateralExtent) / (2 * lateralExtent)) * usableW;
+  const svgY = (along: number) =>
+    padTop + usableH - ((along - minAlong) / alongRange) * usableH;
+
+  const cx = svgX(0);
+  const tdY = svgY(0);
+
+  // Down-sample to at most 400 segments for performance
+  const step = Math.max(1, Math.floor(pts.length / 400));
+  const sampled = pts.filter((_, i) => i % step === 0 || i === pts.length - 1);
+
+  const segs = sampled.slice(0, -1).map((p, i) => ({
+    x1: svgX(p.lateral),
+    y1: svgY(p.along),
+    x2: svgX(sampled[i + 1].lateral),
+    y2: svgY(sampled[i + 1].along),
+    color: altColor(p.altAGL, maxAlt),
+  }));
+
+  const nmInMeters = 1852;
+  const scaleMarkers: number[] = [];
+  for (let d = nmInMeters; d <= maxAlong; d += nmInMeters) {
+    scaleMarkers.push(d);
+  }
+
+  function GateMarker({ pt, label, dashed }: { pt: Pt; label: string; dashed?: boolean }) {
+    const gx = svgX(pt.lateral);
+    const gy = svgY(pt.along);
+    const anchorRight = gx < W / 2;
+    return (
+      <g>
+        <circle
+          cx={gx}
+          cy={gy}
+          r="5"
+          fill="none"
+          stroke="var(--warn)"
+          strokeWidth="1.5"
+          strokeDasharray={dashed ? "3 2" : undefined}
+        />
+        <text
+          x={anchorRight ? gx + 9 : gx - 9}
+          y={gy + 4}
+          fontFamily="JetBrains Mono"
+          fontSize="9"
+          fill="var(--warn)"
+          textAnchor={anchorRight ? "start" : "end"}
+        >
+          {label}
+        </text>
+      </g>
+    );
+  }
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="runway-svg" style={{ height: H }}>
+      <defs>
+        <linearGradient id="altGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="hsl(20, 75%, 62%)" />
+          <stop offset="100%" stopColor="hsl(220, 75%, 62%)" />
+        </linearGradient>
+      </defs>
+
+      {/* Background */}
       <rect
-        x={pad}
-        y={pad}
-        width={W - pad * 2}
-        height={H - pad * 2}
+        x={padLeft}
+        y={padTop}
+        width={usableW}
+        height={usableH}
         fill="var(--panel-2)"
         stroke="var(--border)"
       />
-      <path
-        d={path}
-        fill="none"
-        stroke="var(--accent)"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+
+      {/* Centerline extension */}
+      <line
+        x1={cx}
+        y1={padTop}
+        x2={cx}
+        y2={tdY}
+        stroke="var(--fg-3)"
+        strokeWidth="1"
+        strokeDasharray="10 7"
+        opacity="0.4"
       />
-      {points
-        .filter((p) => !p.touchdown)
-        .filter((_, i) => i % 12 === 0)
-        .map((p, i) => (
-          <circle
-            key={i}
-            cx={x(p.lon)}
-            cy={y(p.lat)}
-            r="1.8"
-            fill="var(--accent)"
-            opacity="0.7"
-          />
-        ))}
-      <circle
-        cx={x(touchdown.lon)}
-        cy={y(touchdown.lat)}
-        r="6"
-        fill="none"
-        stroke="var(--good)"
-        strokeWidth="1.5"
-      />
-      <circle cx={x(touchdown.lon)} cy={y(touchdown.lat)} r="2.5" fill="var(--good)" />
+
+      {/* NM distance tick marks */}
+      {scaleMarkers.map((d, i) => {
+        const y = svgY(d);
+        return (
+          <g key={i}>
+            <line
+              x1={cx - 10}
+              y1={y}
+              x2={cx + 10}
+              y2={y}
+              stroke="var(--fg-3)"
+              strokeWidth="1"
+              opacity="0.35"
+            />
+            <text
+              x={padLeft - 6}
+              y={y + 4}
+              fontFamily="JetBrains Mono"
+              fontSize="9"
+              fill="var(--fg-3)"
+              textAnchor="end"
+            >
+              {Math.round(d / nmInMeters)} NM
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Altitude-colored approach track */}
+      {segs.map((s, i) => (
+        <line
+          key={i}
+          x1={s.x1}
+          y1={s.y1}
+          x2={s.x2}
+          y2={s.y2}
+          stroke={s.color}
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      ))}
+
+      {/* Gate markers */}
+      {gate1000pt && <GateMarker pt={gate1000pt} label="1000 FT" />}
+      {gate500pt && <GateMarker pt={gate500pt} label="500 FT" dashed />}
+
+      {/* Touchdown marker */}
+      <circle cx={cx} cy={tdY} r="7" fill="none" stroke="var(--good)" strokeWidth="1.5" />
+      <circle cx={cx} cy={tdY} r="2.5" fill="var(--good)" />
       <text
-        x={x(touchdown.lon) + 12}
-        y={y(touchdown.lat) - 8}
+        x={cx + 12}
+        y={tdY - 9}
         fontFamily="JetBrains Mono"
-        fontSize="10"
+        fontSize="9"
         fill="var(--good)"
-        letterSpacing="0.1em"
+        letterSpacing="0.08em"
       >
         TOUCHDOWN
       </text>
+
+      {/* Runway symbol */}
+      <rect
+        x={cx - 22}
+        y={tdY + 8}
+        width={44}
+        height={padBottom - 22}
+        fill="var(--panel-3)"
+        stroke="var(--fg-3)"
+        strokeWidth="1"
+        rx="2"
+      />
+
+      {/* Left / Right labels */}
       <text
-        x={pad}
+        x={padLeft + 6}
+        y={padTop + 14}
+        fontFamily="JetBrains Mono"
+        fontSize="9"
+        fill="var(--fg-3)"
+        opacity="0.55"
+      >
+        LEFT
+      </text>
+      <text
+        x={W - padRight - 6}
+        y={padTop + 14}
+        fontFamily="JetBrains Mono"
+        fontSize="9"
+        fill="var(--fg-3)"
+        textAnchor="end"
+        opacity="0.55"
+      >
+        RIGHT
+      </text>
+
+      {/* Altitude color legend */}
+      {maxAlt > 0 && (
+        <>
+          <text
+            x={padLeft}
+            y={H - 22}
+            fontFamily="JetBrains Mono"
+            fontSize="8"
+            fill="var(--fg-3)"
+          >
+            LOW ALT
+          </text>
+          <rect x={padLeft + 54} y={H - 31} width={100} height={6} fill="url(#altGrad)" rx="2" />
+          <text
+            x={padLeft + 160}
+            y={H - 22}
+            fontFamily="JetBrains Mono"
+            fontSize="8"
+            fill="var(--fg-3)"
+          >
+            HIGH ALT
+          </text>
+        </>
+      )}
+
+      {/* Info label */}
+      <text
+        x={W - padRight}
         y={H - 8}
         fontFamily="JetBrains Mono"
-        fontSize="10"
+        fontSize="9"
         fill="var(--fg-3)"
+        textAnchor="end"
       >
-        Real latitude/longitude track from bridge telemetry
+        runway-aligned · {pts.length} samples · hdg {Math.round(hdg)}°
       </text>
     </svg>
   );
@@ -378,9 +580,9 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
       <div className="row" style={{ gap: 14 }}>
         <div className="card flex-1">
           <div className="card-head">
-            <span className="lbl">AIRCRAFT TRACK</span>
+            <span className="lbl">APPROACH TRACK</span>
             <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>
-              {s.trajectoryHistory.length} live samples
+              {s.trajectoryHistory.length} samples · runway-aligned plan view
             </span>
           </div>
           <div className="card-body" style={{ padding: 12 }}>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useBridgeTelemetry } from "../hooks/useBridgeTelemetry";
 import type {
+  AircraftAdapterStatus,
   AircraftTelemetry,
   ApproachGuidance,
   ApproachStabilityGate,
@@ -135,6 +136,7 @@ export type SimState = {
     spawnStatus: SpawnStatus | null;
     error: string | null;
   };
+  aircraftAdapter: AircraftAdapterStatus | null;
   todos: string[];
 };
 
@@ -285,6 +287,7 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
     lastSpawnResult,
     scenarioStatus,
     spawnStatus,
+    aircraftAdapterStatus,
     searchAirports,
     requestRunways,
     selectRunway,
@@ -400,6 +403,7 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
         spawnStatus,
         error: scenarioError,
       },
+      aircraftAdapter: aircraftAdapterStatus,
       todos: TODOS,
     },
     actions: {
