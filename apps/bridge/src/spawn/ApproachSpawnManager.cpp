@@ -64,6 +64,12 @@ ScenarioSpawnResult ApproachSpawnManager::start(
 ) {
     std::lock_guard<std::mutex> lock(mutex_);
 
+    if (holdActive_) {
+        auto result = busyResult(request);
+        result.error = "Spawn hold is still active; cancel/unfreeze before starting another spawn";
+        return result;
+    }
+
     if (!isTerminalOrIdle(stateMachine_.state())) {
         return busyResult(request);
     }
@@ -71,6 +77,7 @@ ScenarioSpawnResult ApproachSpawnManager::start(
     hasScenario_ = false;
     warnings_.clear();
     freezeConfirmedOrAssumed_ = false;
+    holdActive_ = false;
     configurationTimedOut_ = false;
     physicalConfigCommandSent_ = false;
     flightPathCommandSent_ = false;
@@ -133,6 +140,7 @@ void ApproachSpawnManager::tick(const AircraftTelemetry& telemetry) {
                 fail(error);
                 return;
             }
+            holdActive_ = true;
 
             transition(
                 ApproachSpawnState::FreezeHold,
@@ -239,6 +247,11 @@ void ApproachSpawnManager::tick(const AircraftTelemetry& telemetry) {
                     appendWarningOnce(error);
                 } else {
                     appendWarningOnce("Low IAS after teleport; sent one bounded INITPOSITION airspeed refresh");
+                    if (!freezeController_.freezeAll(error)) {
+                        appendWarningOnce(error);
+                    } else {
+                        holdActive_ = true;
+                    }
                 }
                 airspeedRefreshSent_ = true;
                 return;
@@ -299,6 +312,7 @@ void ApproachSpawnManager::tick(const AircraftTelemetry& telemetry) {
                 return;
             }
             if (releaseController_.complete()) {
+                holdActive_ = false;
                 transition(ApproachSpawnState::Flying, "Aircraft released");
             }
             return;
@@ -324,7 +338,7 @@ bool ApproachSpawnManager::requestRelease(std::string& error) {
 
 bool ApproachSpawnManager::cancel(std::string& error) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (isTerminalOrIdle(stateMachine_.state())) {
+    if (isTerminalOrIdle(stateMachine_.state()) && !holdActive_) {
         error = "No active spawn to cancel";
         return false;
     }
@@ -332,6 +346,8 @@ bool ApproachSpawnManager::cancel(std::string& error) {
     std::string unfreezeError;
     if (!freezeController_.unfreezeAll(unfreezeError)) {
         appendWarningOnce(unfreezeError);
+    } else {
+        holdActive_ = false;
     }
 
     transition(ApproachSpawnState::Failed, "Spawn cancelled; aircraft un-frozen");
@@ -340,7 +356,7 @@ bool ApproachSpawnManager::cancel(std::string& error) {
 
 bool ApproachSpawnManager::isActive() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    return !isTerminalOrIdle(stateMachine_.state());
+    return holdActive_ || !isTerminalOrIdle(stateMachine_.state());
 }
 
 ApproachSpawnState ApproachSpawnManager::state() const {
@@ -352,16 +368,16 @@ void ApproachSpawnManager::transition(
     ApproachSpawnState next,
     const std::string& message
 ) {
-    stateMachine_.transitionTo(next, message);
+    const ApproachSpawnState actualState = stateMachine_.transitionTo(next, message);
     stateStartedAt_ = std::chrono::steady_clock::now();
 
     if (statusCallback_) {
         SpawnStatus status;
-        status.state = next;
+        status.state = actualState;
         status.message = message;
         status.airportIdent = scenario_.airportIdent;
         status.runwayIdent = scenario_.runwayIdent;
-        status.readyToRelease = next == ApproachSpawnState::ReadyToRelease;
+        status.readyToRelease = actualState == ApproachSpawnState::ReadyToRelease;
         status.warnings = warnings_;
         statusCallback_(status);
     }

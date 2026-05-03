@@ -23,7 +23,7 @@ std::string approachSpawnStateLabel(ApproachSpawnState state);
 class ApproachSpawnStateMachine {
 public:
     ApproachSpawnState state() const;
-    void transitionTo(ApproachSpawnState next, const std::string& message);
+    ApproachSpawnState transitionTo(ApproachSpawnState next, const std::string& message);
 
 private:
     ApproachSpawnState state_ = ApproachSpawnState::Idle;

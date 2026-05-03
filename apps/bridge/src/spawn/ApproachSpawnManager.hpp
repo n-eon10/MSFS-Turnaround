@@ -75,6 +75,7 @@ private:
     std::vector<std::string> warnings_;
     bool hasScenario_ = false;
     bool freezeConfirmedOrAssumed_ = false;
+    bool holdActive_ = false;
     bool configurationTimedOut_ = false;
     bool physicalConfigCommandSent_ = false;
     bool flightPathCommandSent_ = false;

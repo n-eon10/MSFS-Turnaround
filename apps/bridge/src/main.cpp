@@ -464,6 +464,12 @@ void handleClientMessage(
             {"runwayIdent", runwayIdent}
         };
 
+        if (spawnManager.isActive()) {
+            response["error"] = "Cannot change runway while an approach spawn or freeze hold is active";
+            sendJson(send, response);
+            return;
+        }
+
         if (!navDatabase.isOpen()) {
             response["error"] = "Navdata database is not available";
             sendJson(send, response);
