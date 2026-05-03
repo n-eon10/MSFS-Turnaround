@@ -2,7 +2,6 @@
 
 #include "msfs_turnaround/simconnect_client.hpp"
 #include "navdata/NavDatabase.hpp"
-#include "scenario/AircraftAdapter.hpp"
 
 #include <iostream>
 
@@ -23,8 +22,8 @@ ScenarioSpawnResult failureResult(
     result.airspeedKt = request.airspeedKt;
     result.gearRequested = request.gearDown;
     result.flapsRequested = request.flapsIndex > 0;
-    result.parkingBrakeRequested = true;
-    result.pauseRequested = request.pauseAfterSpawn;
+    result.parkingBrakeRequested = false;
+    result.pauseRequested = false;
     return result;
 }
 
@@ -32,17 +31,16 @@ ScenarioSpawnResult failureResult(
 
 ScenarioSpawner::ScenarioSpawner(
     NavDatabase& navDatabase,
-    SimConnectClient& simconnect,
-    AircraftAdapter& aircraftAdapter
+    SimConnectClient& simconnect
 )
     : navDatabase_(navDatabase),
-      simconnect_(simconnect),
-      aircraftAdapter_(aircraftAdapter) {}
+      simconnect_(simconnect) {}
 
-ScenarioSpawnResult ScenarioSpawner::spawnFinal(
+ScenarioSpawnResult ScenarioSpawner::prepareFinal(
     const ApproachScenarioRequest& request,
     const std::optional<RunwayEnd>& activeRunway,
-    std::optional<RunwayEnd>& selectedRunway
+    std::optional<RunwayEnd>& selectedRunway,
+    ApproachScenario* preparedScenario
 ) {
     if (!simconnect_.isConnected()) {
         return failureResult(request, "MSFS is not connected");
@@ -80,22 +78,11 @@ ScenarioSpawnResult ScenarioSpawner::spawnFinal(
     }
 
     ScenarioSpawnResult result = scenarioResultFromScenario(scenario);
-    if (!simconnect_.setUserAircraftPosition(scenario, error)) {
-        return failureResult(request, error);
-    }
-
-    if (!aircraftAdapter_.configureForApproach(simconnect_, scenario, error)) {
-        result.warnings.push_back(error);
-        std::cerr << "Generic aircraft configuration warning: " << error << std::endl;
-    }
-
-    if (scenario.pauseAfterSpawn && !simconnect_.setPaused(true, error)) {
-        result.warnings.push_back(error);
-        std::cerr << "Pause after spawn warning: " << error << std::endl;
-    }
-
     result.ok = true;
     selectedRunway = runwayEnd;
+    if (preparedScenario != nullptr) {
+        *preparedScenario = scenario;
+    }
     return result;
 }
 

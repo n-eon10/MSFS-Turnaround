@@ -17,8 +17,6 @@ struct ApproachScenarioRequest {
 
     bool gearDown = true;
     int flapsIndex = 3;
-
-    bool pauseAfterSpawn = false;
 };
 
 struct ApproachScenario {
@@ -28,10 +26,10 @@ struct ApproachScenario {
     double distanceNm = 8.0;
     double glidepathDeg = 3.0;
     double airspeedKt = 140.0;
+    double spawnAirspeedKt = 148.0;
 
     bool gearDown = true;
     int flapsIndex = 3;
-    bool pauseAfterSpawn = false;
 
     double spawnLatitudeDeg = 0.0;
     double spawnLongitudeDeg = 0.0;
@@ -64,6 +62,14 @@ struct ScenarioSpawnResult {
     bool flapsRequested = false;
     bool parkingBrakeRequested = false;
     bool pauseRequested = false;
+};
+
+struct ScenarioStatus {
+    std::string phase;
+    std::string message;
+    std::string airportIdent;
+    std::string runwayIdent;
+    std::vector<std::string> warnings;
 };
 
 bool computeApproachScenario(

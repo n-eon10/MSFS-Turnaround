@@ -8,6 +8,8 @@ import type {
   LandingAnalysisPayload,
   NavAirport,
   NavRunwayEnd,
+  ScenarioStatus,
+  SpawnStatus,
   SpawnFinalRequest,
   SpawnFinalResult,
 } from "../types/telemetry";
@@ -41,6 +43,8 @@ export function useBridgeTelemetry() {
   const [scenarioError, setScenarioError] = useState<string | null>(null);
   const [lastSpawnResult, setLastSpawnResult] =
     useState<SpawnFinalResult | null>(null);
+  const [scenarioStatus, setScenarioStatus] = useState<ScenarioStatus | null>(null);
+  const [spawnStatus, setSpawnStatus] = useState<SpawnStatus | null>(null);
   const [lastMessageAt, setLastMessageAt] = useState<Date | null>(null);
   const pendingSelectedRunwayRef = useRef<NavRunwayEnd | null>(null);
   const previousOnGroundRef = useRef<boolean | null>(null);
@@ -155,6 +159,35 @@ export function useBridgeTelemetry() {
             }
             setLastMessageAt(new Date());
           }
+
+          if (message.type === "scenario.status") {
+            const statusMessage = message as ScenarioStatus;
+            setScenarioStatus(statusMessage);
+            if (statusMessage.phase === "failed") {
+              setScenarioError(statusMessage.message);
+            }
+            setLastMessageAt(new Date());
+          }
+
+          if (message.type === "spawn.status") {
+            const statusMessage = message as SpawnStatus;
+            setSpawnStatus(statusMessage);
+            if (statusMessage.state === "FAILED") {
+              setScenarioError(statusMessage.message);
+            }
+            setLastMessageAt(new Date());
+          }
+
+          if (
+            message.type === "spawn.release.result" ||
+            message.type === "spawn.cancel.result"
+          ) {
+            const result = message as { ok?: boolean; error?: string };
+            if (result.ok === false) {
+              setScenarioError(result.error ?? "Spawn action failed");
+            }
+            setLastMessageAt(new Date());
+          }
         } catch {
           // Ignore malformed bridge messages for now.
         }
@@ -263,6 +296,8 @@ export function useBridgeTelemetry() {
     (request: Omit<SpawnFinalRequest, "type">) => {
       setScenarioError(null);
       setLastSpawnResult(null);
+      setScenarioStatus(null);
+      setSpawnStatus(null);
 
       if (!sendBridgeMessage({ type: "scenario.spawn_final", ...request })) {
         setScenarioError("Bridge is not connected");
@@ -270,6 +305,20 @@ export function useBridgeTelemetry() {
     },
     [sendBridgeMessage]
   );
+
+  const releaseSpawn = useCallback(() => {
+    setScenarioError(null);
+    if (!sendBridgeMessage({ type: "spawn.release" })) {
+      setScenarioError("Bridge is not connected");
+    }
+  }, [sendBridgeMessage]);
+
+  const cancelSpawn = useCallback(() => {
+    setScenarioError(null);
+    if (!sendBridgeMessage({ type: "spawn.cancel" })) {
+      setScenarioError("Bridge is not connected");
+    }
+  }, [sendBridgeMessage]);
 
   return {
     status,
@@ -286,10 +335,14 @@ export function useBridgeTelemetry() {
     navdataError,
     scenarioError,
     lastSpawnResult,
+    scenarioStatus,
+    spawnStatus,
     searchAirports,
     requestRunways,
     selectRunway,
     spawnFinal,
+    releaseSpawn,
+    cancelSpawn,
     lastMessageAt,
     bridgeUrl: BRIDGE_URL,
   };

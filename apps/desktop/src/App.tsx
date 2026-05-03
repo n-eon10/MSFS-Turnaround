@@ -95,7 +95,7 @@ function App() {
       case "setup":
         return <ApproachSetup sim={sim} />;
       case "scenario":
-        return <ScenarioSetup sim={sim} />;
+        return <ScenarioSetup sim={sim} onSpawnSuccess={() => setPage("monitor")} />;
       case "monitor":
         return <LiveMonitor sim={sim} />;
       case "analysis":

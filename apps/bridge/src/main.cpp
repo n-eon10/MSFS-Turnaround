@@ -3,10 +3,12 @@
 
 #include "msfs_turnaround/landing_analysis.hpp"
 #include "approach/ApproachGuidance.hpp"
+#include "approach/Geo.hpp"
 #include "approach/StableApproachMonitor.hpp"
+#include "aircraft/GenericAircraftAdapter.hpp"
 #include "navdata/NavDatabase.hpp"
-#include "scenario/GenericAircraftAdapter.hpp"
 #include "scenario/ScenarioSpawner.hpp"
+#include "spawn/ApproachSpawnManager.hpp"
 
 #include <ixwebsocket/IXNetSystem.h>
 #include <nlohmann/json.hpp>
@@ -25,6 +27,7 @@ namespace {
 
 using msfs_turnaround::AircraftTelemetry;
 using msfs_turnaround::RunwayEnd;
+using msfs_turnaround::ScenarioStatus;
 
 bool simBool(double value) {
     return std::isfinite(value) && std::abs(value) >= 0.5;
@@ -47,7 +50,10 @@ std::string telemetryToJson(const msfs_turnaround::AircraftTelemetry& telemetry)
             {"altitudeAboveGroundFt", telemetry.altitudeAboveGroundFt},
             {"pitchDeg", telemetry.pitchDeg},
             {"bankDeg", telemetry.bankDeg},
-            {"gForce", telemetry.gForce}
+            {"gForce", telemetry.gForce},
+            {"latitudeLongitudeFreezeOn", telemetry.latitudeLongitudeFreezeOn},
+            {"altitudeFreezeOn", telemetry.altitudeFreezeOn},
+            {"attitudeFreezeOn", telemetry.attitudeFreezeOn}
         }}
     };
 
@@ -194,6 +200,62 @@ std::string stabilityGateToJson(
 
 nlohmann::json runwayEndToJson(const RunwayEnd& runwayEnd);
 
+std::string scenarioStatusToJson(const ScenarioStatus& status) {
+    nlohmann::json message = {
+        {"type", "scenario.status"},
+        {"phase", status.phase},
+        {"message", status.message},
+        {"warnings", status.warnings}
+    };
+
+    if (!status.airportIdent.empty()) {
+        message["airportIdent"] = status.airportIdent;
+    }
+
+    if (!status.runwayIdent.empty()) {
+        message["runwayIdent"] = status.runwayIdent;
+    }
+
+    return message.dump();
+}
+
+std::string spawnStatusToJson(const msfs_turnaround::SpawnStatus& status) {
+    nlohmann::json message = {
+        {"type", "spawn.status"},
+        {"state", msfs_turnaround::approachSpawnStateName(status.state)},
+        {"label", msfs_turnaround::approachSpawnStateLabel(status.state)},
+        {"message", status.message},
+        {"readyToRelease", status.readyToRelease},
+        {"warnings", status.warnings}
+    };
+
+    if (!status.airportIdent.empty()) {
+        message["airportIdent"] = status.airportIdent;
+    }
+
+    if (!status.runwayIdent.empty()) {
+        message["runwayIdent"] = status.runwayIdent;
+    }
+
+    return message.dump();
+}
+
+ScenarioStatus makeScenarioStatus(
+    const std::string& phase,
+    const std::string& message,
+    const std::string& airportIdent,
+    const std::string& runwayIdent,
+    std::vector<std::string> warnings = {}
+) {
+    ScenarioStatus status;
+    status.phase = phase;
+    status.message = message;
+    status.airportIdent = airportIdent;
+    status.runwayIdent = runwayIdent;
+    status.warnings = std::move(warnings);
+    return status;
+}
+
 std::string scenarioSpawnResultToJson(
     const msfs_turnaround::ScenarioSpawnResult& result,
     const std::optional<RunwayEnd>& selectedRunway
@@ -328,7 +390,7 @@ void sendJson(
 void handleClientMessage(
     const std::string& rawMessage,
     msfs_turnaround::NavDatabase& navDatabase,
-    msfs_turnaround::ScenarioSpawner& scenarioSpawner,
+    msfs_turnaround::ApproachSpawnManager& spawnManager,
     std::mutex& activeRunwayMutex,
     std::optional<RunwayEnd>& activeRunway,
     std::mutex& latestTelemetryMutex,
@@ -435,8 +497,6 @@ void handleClientMessage(
         request.airspeedKt = jsonDouble(message, "airspeedKt", request.airspeedKt);
         request.gearDown = jsonBool(message, "gearDown", request.gearDown);
         request.flapsIndex = jsonInt(message, "flapsIndex", request.flapsIndex);
-        request.pauseAfterSpawn =
-            jsonBool(message, "pauseAfterSpawn", request.pauseAfterSpawn);
 
         std::optional<RunwayEnd> activeRunwayCopy;
         {
@@ -472,16 +532,74 @@ void handleClientMessage(
         }
 
         std::optional<RunwayEnd> selectedRunway;
-        const auto result =
-            scenarioSpawner.spawnFinal(request, activeRunwayCopy, selectedRunway);
+        const std::string requestedAirportIdent =
+            !request.airportIdent.empty()
+                ? request.airportIdent
+                : activeRunwayCopy ? activeRunwayCopy->airportIdent : std::string {};
+        const std::string requestedRunwayIdent =
+            !request.runwayIdent.empty()
+                ? request.runwayIdent
+                : activeRunwayCopy ? activeRunwayCopy->runwayIdent : std::string {};
+        if (!requestedAirportIdent.empty() || !requestedRunwayIdent.empty()) {
+            send(scenarioStatusToJson(makeScenarioStatus(
+                "spawn_requested",
+                "Scenario requested...",
+                requestedAirportIdent,
+                requestedRunwayIdent
+            )));
+        }
+
+        const auto result = spawnManager.start(request, activeRunwayCopy, selectedRunway);
 
         if (result.ok && selectedRunway) {
-            std::lock_guard<std::mutex> lock(activeRunwayMutex);
-            activeRunway = selectedRunway;
-            stableApproachMonitor.resetForNewApproach();
+            {
+                std::lock_guard<std::mutex> lock(activeRunwayMutex);
+                activeRunway = selectedRunway;
+                stableApproachMonitor.resetForNewApproach();
+            }
+        } else {
+            const std::string airportIdent =
+                selectedRunway ? selectedRunway->airportIdent : request.airportIdent;
+            const std::string runwayIdent =
+                selectedRunway ? selectedRunway->runwayIdent : request.runwayIdent;
+            send(scenarioStatusToJson(makeScenarioStatus(
+                "failed",
+                result.error.empty() ? "Spawn failed." : result.error,
+                airportIdent,
+                runwayIdent,
+                result.warnings
+            )));
         }
 
         send(scenarioSpawnResultToJson(result, selectedRunway));
+        return;
+    }
+
+    if (type == "spawn.release") {
+        std::string error;
+        const bool ok = spawnManager.requestRelease(error);
+        nlohmann::json response = {
+            {"type", "spawn.release.result"},
+            {"ok", ok}
+        };
+        if (!ok) {
+            response["error"] = error;
+        }
+        sendJson(send, response);
+        return;
+    }
+
+    if (type == "spawn.cancel") {
+        std::string error;
+        const bool ok = spawnManager.cancel(error);
+        nlohmann::json response = {
+            {"type", "spawn.cancel.result"},
+            {"ok", ok}
+        };
+        if (!ok) {
+            response["error"] = error;
+        }
+        sendJson(send, response);
         return;
     }
 }
@@ -505,15 +623,25 @@ int main(int argc, char** argv) {
     msfs_turnaround::GenericAircraftAdapter genericAircraftAdapter;
     msfs_turnaround::ScenarioSpawner scenarioSpawner(
         navDatabase,
+        simConnectClient
+    );
+    msfs_turnaround::ApproachSpawnManager spawnManager(
+        scenarioSpawner,
         simConnectClient,
         genericAircraftAdapter
     );
 
     msfs_turnaround::WebSocketServer webSocketServer(48787);
+    spawnManager.setStatusCallback(
+        [&webSocketServer](const msfs_turnaround::SpawnStatus& status) {
+            webSocketServer.broadcast(spawnStatusToJson(status));
+        }
+    );
+
     webSocketServer.setClientMessageHandler(
         [
             &navDatabase,
-            &scenarioSpawner,
+            &spawnManager,
             &activeRunwayMutex,
             &activeRunway,
             &latestTelemetryMutex,
@@ -526,7 +654,7 @@ int main(int argc, char** argv) {
             handleClientMessage(
                 rawMessage,
                 navDatabase,
-                scenarioSpawner,
+                spawnManager,
                 activeRunwayMutex,
                 activeRunway,
                 latestTelemetryMutex,
@@ -550,6 +678,7 @@ int main(int argc, char** argv) {
         [
             &webSocketServer,
             &landingDetector,
+            &spawnManager,
             &activeRunwayMutex,
             &activeRunway,
             &latestTelemetryMutex,
@@ -564,6 +693,8 @@ int main(int argc, char** argv) {
             }
 
             webSocketServer.broadcast(telemetryToJson(telemetry));
+
+            spawnManager.tick(telemetry);
 
             std::optional<msfs_turnaround::RunwayEnd> runwayForGuidance;
             {

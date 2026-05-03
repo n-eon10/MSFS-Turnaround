@@ -78,9 +78,9 @@ bool computeApproachScenario(
     scenario.distanceNm = request.distanceNm;
     scenario.glidepathDeg = request.glidepathDeg;
     scenario.airspeedKt = request.airspeedKt;
+    scenario.spawnAirspeedKt = request.airspeedKt + 8.0;
     scenario.gearDown = request.gearDown;
     scenario.flapsIndex = request.flapsIndex;
-    scenario.pauseAfterSpawn = request.pauseAfterSpawn;
     scenario.spawnLatitudeDeg = spawnPoint.latitudeDeg;
     scenario.spawnLongitudeDeg = spawnPoint.longitudeDeg;
     scenario.spawnAltitudeFt =
@@ -105,8 +105,8 @@ ScenarioSpawnResult scenarioResultFromScenario(const ApproachScenario& scenario)
     result.spawnHeadingDeg = scenario.spawnHeadingDeg;
     result.gearRequested = scenario.gearDown;
     result.flapsRequested = scenario.flapsIndex > 0;
-    result.parkingBrakeRequested = true;
-    result.pauseRequested = scenario.pauseAfterSpawn;
+    result.parkingBrakeRequested = false;
+    result.pauseRequested = false;
     return result;
 }
 

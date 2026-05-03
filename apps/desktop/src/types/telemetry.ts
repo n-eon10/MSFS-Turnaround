@@ -13,6 +13,9 @@ export type AircraftTelemetry = {
   pitchDeg?: number;
   bankDeg?: number;
   gForce?: number;
+  latitudeLongitudeFreezeOn?: number;
+  altitudeFreezeOn?: number;
+  attitudeFreezeOn?: number;
 };
 
 export type LandingAnalysisPayload = {
@@ -105,6 +108,17 @@ export type ApproachStabilityGate = {
   issues: string[];
 };
 
+export type ScenarioPreset = {
+  id: string;
+  label: string;
+  description: string;
+  distanceNm: number;
+  glidepathDeg: number;
+  airspeedKt: number;
+  gearDown: boolean;
+  flapsIndex: number;
+};
+
 export type SpawnFinalRequest = {
   type: "scenario.spawn_final";
   airportIdent?: string;
@@ -114,7 +128,6 @@ export type SpawnFinalRequest = {
   airspeedKt: number;
   gearDown: boolean;
   flapsIndex: number;
-  pauseAfterSpawn?: boolean;
 };
 
 export type SpawnFinalResult = {
@@ -136,6 +149,44 @@ export type SpawnFinalResult = {
   flapsRequested?: boolean;
   parkingBrakeRequested?: boolean;
   pauseRequested?: boolean;
+};
+
+export type ScenarioStatus = {
+  type: "scenario.status";
+  phase:
+    | "spawn_requested"
+    | "spawned"
+    | "validating"
+    | "confirmed"
+    | "warning"
+    | "failed";
+  message: string;
+  airportIdent?: string;
+  runwayIdent?: string;
+  warnings?: string[];
+};
+
+export type SpawnLifecycleState =
+  | "IDLE"
+  | "CALCULATE_FINAL_POSITION"
+  | "TELEPORT_WITH_INITPOSITION"
+  | "FREEZE_HOLD"
+  | "CONFIGURE_AIRCRAFT"
+  | "STABILISE_SIM_STATE"
+  | "READY_TO_RELEASE"
+  | "SMOOTH_RELEASE"
+  | "FLYING"
+  | "FAILED";
+
+export type SpawnStatus = {
+  type: "spawn.status";
+  state: SpawnLifecycleState;
+  label?: string;
+  message: string;
+  readyToRelease: boolean;
+  airportIdent?: string;
+  runwayIdent?: string;
+  warnings?: string[];
 };
 
 export type BridgeMessage =
@@ -168,6 +219,8 @@ export type BridgeMessage =
     }
   | ApproachGuidance
   | ApproachStabilityGate
+  | ScenarioStatus
+  | SpawnStatus
   | SpawnFinalResult
   | {
       type: string;

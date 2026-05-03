@@ -17,7 +17,13 @@ add_executable(msfs_turnaround_bridge
     src/approach/StableApproachMonitor.cpp
     src/scenario/ApproachScenario.cpp
     src/scenario/ScenarioSpawner.cpp
-    src/scenario/GenericAircraftAdapter.cpp
+    src/aircraft/GenericAircraftAdapter.cpp
+    src/spawn/AircraftConfigurator.cpp
+    src/spawn/ApproachSpawnManager.cpp
+    src/spawn/ApproachSpawnStateMachine.cpp
+    src/spawn/ReleaseController.cpp
+    src/spawn/SpawnFreezeController.cpp
+    src/spawn/SpawnReadinessChecker.cpp
 )
 
 target_compile_definitions(msfs_turnaround_bridge PRIVATE

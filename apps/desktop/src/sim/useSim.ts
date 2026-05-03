@@ -9,6 +9,8 @@ import type {
   LandingAnalysisPayload,
   NavAirport,
   NavRunwayEnd,
+  ScenarioStatus,
+  SpawnStatus,
   SpawnFinalRequest,
   SpawnFinalResult,
 } from "../types/telemetry";
@@ -129,6 +131,8 @@ export type SimState = {
   };
   scenario: {
     lastSpawnResult: SpawnFinalResult | null;
+    status: ScenarioStatus | null;
+    spawnStatus: SpawnStatus | null;
     error: string | null;
   };
   todos: string[];
@@ -146,6 +150,8 @@ export type SimActions = {
   requestRunways: (airportIdent: string) => void;
   selectRunway: (runway: NavRunwayEnd) => void;
   spawnFinal: (request: Omit<SpawnFinalRequest, "type">) => void;
+  releaseSpawn: () => void;
+  cancelSpawn: () => void;
 };
 
 export type UseSimResult = { state: SimState; actions: SimActions };
@@ -277,10 +283,14 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
     navdataError,
     scenarioError,
     lastSpawnResult,
+    scenarioStatus,
+    spawnStatus,
     searchAirports,
     requestRunways,
     selectRunway,
     spawnFinal,
+    releaseSpawn,
+    cancelSpawn,
     lastMessageAt,
     bridgeUrl,
   } = useBridgeTelemetry();
@@ -386,6 +396,8 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
       },
       scenario: {
         lastSpawnResult,
+        status: scenarioStatus,
+        spawnStatus,
         error: scenarioError,
       },
       todos: TODOS,
@@ -402,6 +414,8 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
       requestRunways,
       selectRunway,
       spawnFinal,
+      releaseSpawn,
+      cancelSpawn,
     },
   };
 }

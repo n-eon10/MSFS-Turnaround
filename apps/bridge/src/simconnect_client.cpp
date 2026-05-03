@@ -1,10 +1,10 @@
 #include "msfs_turnaround/simconnect_client.hpp"
 #include "scenario/ApproachScenario.hpp"
 
+#include <algorithm>
 #include <utility>
 
 #include <cmath>
-#include <iomanip>
 #include <iostream>
 #include <sstream>
 
@@ -12,6 +12,7 @@ namespace msfs_turnaround {
 namespace {
 
 constexpr double RadiansToDegrees = 180.0 / 3.14159265358979323846;
+constexpr double KnotsToFeetPerSecond = 1.6878098571011957;
 
 double normalizeDegrees(double degrees) {
     double normalized = std::fmod(degrees, 360.0);
@@ -50,11 +51,6 @@ struct DirectAircraftPosition {
     double pitchDeg = 0.0;
     double bankDeg = 0.0;
     double headingDeg = 0.0;
-};
-
-struct DirectAircraftFlightState {
-    double simOnGround = 0.0;
-    double trueAirspeedKt = 0.0;
 };
 
 const char* simConnectExceptionName(DWORD exception) {
@@ -292,6 +288,27 @@ void SimConnectClient::requestAircraftTelemetry() {
         "degrees"
     );
 
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "IS LATITUDE LONGITUDE FREEZE ON",
+        "bool"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "IS ALTITUDE FREEZE ON",
+        "bool"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "IS ATTITUDE FREEZE ON",
+        "bool"
+    );
+
     SimConnect_RequestDataOnSimObject(
         simConnect_,
         static_cast<DWORD>(DataRequestId::AircraftTelemetry),
@@ -321,8 +338,11 @@ void SimConnectClient::close() {
         simConnect_ = nullptr;
         initialPositionDefinitionRegistered_ = false;
         directPositionDefinitionRegistered_ = false;
-        directFlightStateDefinitionRegistered_ = false;
+        bodyVelocityDefinitionRegistered_ = false;
+        bodyRotationVelocityDefinitionRegistered_ = false;
         aircraftConfigurationDefinitionRegistered_ = false;
+        pauseEventsRegistered_ = false;
+        freezeEventsRegistered_ = false;
     }
 }
 
@@ -423,37 +443,6 @@ bool SimConnectClient::registerDirectPositionDefinition(std::string& error) {
     return true;
 }
 
-bool SimConnectClient::registerDirectFlightStateDefinition(std::string& error) {
-    if (directFlightStateDefinitionRegistered_) {
-        return true;
-    }
-
-    HRESULT result = SimConnect_AddToDataDefinition(
-        simConnect_,
-        static_cast<DWORD>(DataDefinitionId::DirectFlightState),
-        "SIM ON GROUND",
-        "bool"
-    );
-    if (FAILED(result)) {
-        error = hresultMessage("Registering direct on-ground data definition", result);
-        return false;
-    }
-
-    result = SimConnect_AddToDataDefinition(
-        simConnect_,
-        static_cast<DWORD>(DataDefinitionId::DirectFlightState),
-        "AIRSPEED TRUE RAW",
-        "knots"
-    );
-    if (FAILED(result)) {
-        error = hresultMessage("Registering direct airspeed data definition", result);
-        return false;
-    }
-
-    directFlightStateDefinitionRegistered_ = true;
-    return true;
-}
-
 bool SimConnectClient::registerAircraftConfigurationDefinition(std::string& error) {
     if (aircraftConfigurationDefinitionRegistered_) {
         return true;
@@ -496,6 +485,237 @@ bool SimConnectClient::registerAircraftConfigurationDefinition(std::string& erro
     return true;
 }
 
+bool SimConnectClient::registerBodyVelocityDefinition(std::string& error) {
+    if (bodyVelocityDefinitionRegistered_) {
+        return true;
+    }
+
+    const HRESULT result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::BodyVelocity),
+        "STRUCT BODY VELOCITY",
+        "feet per second",
+        SIMCONNECT_DATATYPE_XYZ
+    );
+
+    if (FAILED(result)) {
+        error = hresultMessage("Registering body velocity data definition", result);
+        return false;
+    }
+
+    bodyVelocityDefinitionRegistered_ = true;
+    return true;
+}
+
+bool SimConnectClient::registerBodyRotationVelocityDefinition(std::string& error) {
+    if (bodyRotationVelocityDefinitionRegistered_) {
+        return true;
+    }
+
+    const HRESULT result = SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::BodyRotationVelocity),
+        "STRUCT BODY ROTATION VELOCITY",
+        "radians per second",
+        SIMCONNECT_DATATYPE_XYZ
+    );
+
+    if (FAILED(result)) {
+        error = hresultMessage("Registering body rotation velocity data definition", result);
+        return false;
+    }
+
+    bodyRotationVelocityDefinitionRegistered_ = true;
+    return true;
+}
+
+bool SimConnectClient::registerPauseEvents(std::string& error) {
+    if (pauseEventsRegistered_) {
+        return true;
+    }
+
+    HRESULT result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::PauseOn),
+        "PAUSE_ON"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering pause-on event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::PauseOff),
+        "PAUSE_OFF"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering pause-off event", result);
+        return false;
+    }
+
+    pauseEventsRegistered_ = true;
+    return true;
+}
+
+bool SimConnectClient::registerFreezeEvents(std::string& error) {
+    if (freezeEventsRegistered_) {
+        return true;
+    }
+
+    HRESULT result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::FreezeLatLonToggle),
+        "FREEZE_LATITUDE_LONGITUDE_TOGGLE"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering freeze lat/lon toggle event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::FreezeLatLonSet),
+        "FREEZE_LATITUDE_LONGITUDE_SET"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering freeze lat/lon set event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::FreezeAltitudeToggle),
+        "FREEZE_ALTITUDE_TOGGLE"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering freeze altitude toggle event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::FreezeAltitudeSet),
+        "FREEZE_ALTITUDE_SET"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering freeze altitude set event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::FreezeAttitudeToggle),
+        "FREEZE_ATTITUDE_TOGGLE"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering freeze attitude toggle event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::FreezeAttitudeSet),
+        "FREEZE_ATTITUDE_SET"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering freeze attitude set event", result);
+        return false;
+    }
+
+    freezeEventsRegistered_ = true;
+    return true;
+}
+
+bool SimConnectClient::registerConfigurationEvents(std::string& error) {
+    if (aircraftConfigurationDefinitionRegistered_) {
+        return true;
+    }
+
+    HRESULT result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::GearSet),
+        "GEAR_SET"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering gear-set event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::ParkingBrakeSet),
+        "PARKING_BRAKE_SET"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering parking-brake-set event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::FlapsUp),
+        "FLAPS_UP"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering flaps-up event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::Flaps1),
+        "FLAPS_1"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering flaps-1 event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::Flaps2),
+        "FLAPS_2"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering flaps-2 event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::Flaps3),
+        "FLAPS_3"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering flaps-3 event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::Flaps4),
+        "FLAPS_4"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering flaps-4 event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::FlapsSet),
+        "FLAPS_SET"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering flaps-set event", result);
+        return false;
+    }
+
+    aircraftConfigurationDefinitionRegistered_ = true;
+    return true;
+}
+
 bool SimConnectClient::setUserAircraftInitialPosition(
     const ApproachScenario& scenario,
     std::string& error
@@ -508,11 +728,11 @@ bool SimConnectClient::setUserAircraftInitialPosition(
     position.Latitude = scenario.spawnLatitudeDeg;
     position.Longitude = scenario.spawnLongitudeDeg;
     position.Altitude = scenario.spawnAltitudeFt;
-    position.Pitch = 0.0;
+    position.Pitch = 3.0;
     position.Bank = 0.0;
     position.Heading = scenario.spawnHeadingDeg;
     position.OnGround = 0;
-    position.Airspeed = static_cast<DWORD>(std::lround(scenario.airspeedKt));
+    position.Airspeed = static_cast<DWORD>(std::lround(scenario.spawnAirspeedKt));
 
     const HRESULT result = SimConnect_SetDataOnSimObject(
         simConnect_,
@@ -544,7 +764,7 @@ bool SimConnectClient::setUserAircraftDirectPosition(
     position.latitudeDeg = scenario.spawnLatitudeDeg;
     position.longitudeDeg = scenario.spawnLongitudeDeg;
     position.altitudeFt = scenario.spawnAltitudeFt;
-    position.pitchDeg = 0.0;
+    position.pitchDeg = 3.0;
     position.bankDeg = 0.0;
     position.headingDeg = scenario.spawnHeadingDeg;
 
@@ -566,30 +786,56 @@ bool SimConnectClient::setUserAircraftDirectPosition(
     return true;
 }
 
-bool SimConnectClient::setUserAircraftDirectFlightState(
+bool SimConnectClient::setUserAircraftBodyVelocity(
     const ApproachScenario& scenario,
     std::string& error
 ) {
-    if (!registerDirectFlightStateDefinition(error)) {
+    if (!registerBodyVelocityDefinition(error)) {
         return false;
     }
 
-    DirectAircraftFlightState flightState;
-    flightState.simOnGround = 0;
-    flightState.trueAirspeedKt = scenario.airspeedKt;
+    SIMCONNECT_DATA_XYZ bodyVelocity {};
+    bodyVelocity.x = 0.0;
+    bodyVelocity.y = 0.0;
+    bodyVelocity.z = scenario.spawnAirspeedKt * KnotsToFeetPerSecond;
 
     const HRESULT result = SimConnect_SetDataOnSimObject(
         simConnect_,
-        static_cast<DWORD>(DataDefinitionId::DirectFlightState),
+        static_cast<DWORD>(DataDefinitionId::BodyVelocity),
         SIMCONNECT_OBJECT_ID_USER,
         0,
         0,
-        sizeof(flightState),
-        &flightState
+        sizeof(bodyVelocity),
+        &bodyVelocity
     );
 
     if (FAILED(result)) {
-        error = hresultMessage("Setting user aircraft direct flight state", result);
+        error = hresultMessage("Setting user aircraft body velocity", result);
+        return false;
+    }
+
+    return true;
+}
+
+bool SimConnectClient::setUserAircraftBodyRotationVelocity(std::string& error) {
+    if (!registerBodyRotationVelocityDefinition(error)) {
+        return false;
+    }
+
+    SIMCONNECT_DATA_XYZ bodyRotationVelocity {};
+
+    const HRESULT result = SimConnect_SetDataOnSimObject(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::BodyRotationVelocity),
+        SIMCONNECT_OBJECT_ID_USER,
+        0,
+        0,
+        sizeof(bodyRotationVelocity),
+        &bodyRotationVelocity
+    );
+
+    if (FAILED(result)) {
+        error = hresultMessage("Setting user aircraft body rotation velocity", result);
         return false;
     }
 
@@ -614,24 +860,8 @@ bool SimConnectClient::setUserAircraftPosition(
             << std::endl;
     }
 
-    std::string directFlightStateError;
-    if (!setUserAircraftDirectFlightState(scenario, directFlightStateError)) {
-        std::cerr
-            << "Direct aircraft flight state warning: "
-            << directFlightStateError
-            << std::endl;
-    }
-
     if (!setUserAircraftDirectPosition(scenario, error)) {
         return false;
-    }
-
-    directFlightStateError.clear();
-    if (!setUserAircraftDirectFlightState(scenario, directFlightStateError)) {
-        std::cerr
-            << "Direct aircraft flight state warning: "
-            << directFlightStateError
-            << std::endl;
     }
 
     std::cout
@@ -640,6 +870,62 @@ bool SimConnectClient::setUserAircraftPosition(
         << " ALT_FT=" << scenario.spawnAltitudeFt
         << " HDG_DEG=" << scenario.spawnHeadingDeg
         << " TAS_KT=" << scenario.airspeedKt
+        << std::endl;
+
+    return true;
+}
+
+bool SimConnectClient::teleportUserAircraftToInitialPosition(
+    const ApproachScenario& scenario,
+    std::string& error
+) {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        error = "MSFS is not connected";
+        return false;
+    }
+
+    if (!setUserAircraftInitialPosition(scenario, error)) {
+        return false;
+    }
+
+    std::cout
+        << "Requested airborne initial-position teleport: LAT=" << scenario.spawnLatitudeDeg
+        << " LON=" << scenario.spawnLongitudeDeg
+        << " ALT_FT=" << scenario.spawnAltitudeFt
+        << " HDG_DEG=" << scenario.spawnHeadingDeg
+        << " IAS_KT=" << scenario.spawnAirspeedKt
+        << std::endl;
+
+    return true;
+}
+
+bool SimConnectClient::stabiliseUserAircraftFlightPath(
+    const ApproachScenario& scenario,
+    std::string& error
+) {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        error = "MSFS is not connected";
+        return false;
+    }
+
+    if (!setUserAircraftDirectPosition(scenario, error)) {
+        return false;
+    }
+
+    if (!setUserAircraftBodyVelocity(scenario, error)) {
+        return false;
+    }
+
+    if (!setUserAircraftBodyRotationVelocity(error)) {
+        return false;
+    }
+
+    std::cout
+        << "Requested frozen flight-path stabilisation: ALT_FT=" << scenario.spawnAltitudeFt
+        << " HDG_DEG=" << scenario.spawnHeadingDeg
+        << " IAS_KT=" << scenario.spawnAirspeedKt
         << std::endl;
 
     return true;
@@ -656,28 +942,52 @@ bool SimConnectClient::setGenericAircraftConfiguration(
         return false;
     }
 
-    if (!registerAircraftConfigurationDefinition(error)) {
+    if (!registerConfigurationEvents(error)) {
         return false;
     }
 
-    GenericAircraftConfiguration configuration;
-    configuration.parkingBrakePosition = 0.0;
-    configuration.gearHandlePosition = gearDown ? 1.0 : 0.0;
-    configuration.flapsHandleIndex = static_cast<double>(flapsIndex);
-
-    const HRESULT result = SimConnect_SetDataOnSimObject(
-        simConnect_,
-        static_cast<DWORD>(DataDefinitionId::AircraftConfiguration),
-        SIMCONNECT_OBJECT_ID_USER,
-        0,
-        0,
-        sizeof(configuration),
-        &configuration
-    );
-
-    if (FAILED(result)) {
-        error = hresultMessage("Setting generic aircraft approach configuration", result);
+    if (!transmitClientEvent(
+            ClientEventId::ParkingBrakeSet,
+            0,
+            error)) {
         return false;
+    }
+
+    if (!transmitClientEvent(
+            ClientEventId::GearSet,
+            gearDown ? 1u : 0u,
+            error)) {
+        return false;
+    }
+
+    if (flapsIndex <= 0) {
+        if (!transmitClientEvent(ClientEventId::FlapsUp, 0, error)) {
+            return false;
+        }
+    } else if (flapsIndex == 1) {
+        if (!transmitClientEvent(ClientEventId::Flaps1, 0, error)) {
+            return false;
+        }
+    } else if (flapsIndex == 2) {
+        if (!transmitClientEvent(ClientEventId::Flaps2, 0, error)) {
+            return false;
+        }
+    } else if (flapsIndex == 3) {
+        if (!transmitClientEvent(ClientEventId::Flaps3, 0, error)) {
+            return false;
+        }
+    } else if (flapsIndex == 4) {
+        if (!transmitClientEvent(ClientEventId::Flaps4, 0, error)) {
+            return false;
+        }
+    } else {
+        const auto boundedIndex = std::clamp(flapsIndex, 0, 4);
+        const auto flapsPercent = static_cast<DWORD>(std::lround(
+            (static_cast<double>(boundedIndex) / 4.0) * 16383.0
+        ));
+        if (!transmitClientEvent(ClientEventId::FlapsSet, flapsPercent, error)) {
+            return false;
+        }
     }
 
     return true;
@@ -690,16 +1000,92 @@ bool SimConnectClient::setPaused(bool paused, std::string& error) {
         return false;
     }
 
-    const HRESULT result = SimConnect_SetSystemState(
+    if (!registerPauseEvents(error)) {
+        return false;
+    }
+
+    if (!transmitClientEvent(
+            paused ? ClientEventId::PauseOn : ClientEventId::PauseOff,
+            0,
+            error)) {
+        return false;
+    }
+
+    std::cout
+        << "Requested simulator "
+        << (paused ? "pause" : "resume")
+        << " via SimConnect event."
+        << std::endl;
+
+    return true;
+}
+
+bool SimConnectClient::setSpawnFreeze(bool enabled, std::string& error) {
+    return setSpawnFreezeAxes(enabled, enabled, enabled, error);
+}
+
+bool SimConnectClient::setSpawnFreezeAxes(
+    bool latitudeLongitude,
+    bool altitude,
+    bool attitude,
+    std::string& error
+) {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        error = "MSFS is not connected";
+        return false;
+    }
+
+    if (!registerFreezeEvents(error)) {
+        return false;
+    }
+
+    if (!transmitClientEvent(
+            ClientEventId::FreezeLatLonSet,
+            latitudeLongitude ? 1u : 0u,
+            error)) {
+        return false;
+    }
+
+    if (!transmitClientEvent(
+            ClientEventId::FreezeAltitudeSet,
+            altitude ? 1u : 0u,
+            error)) {
+        return false;
+    }
+
+    if (!transmitClientEvent(
+            ClientEventId::FreezeAttitudeSet,
+            attitude ? 1u : 0u,
+            error)) {
+        return false;
+    }
+
+    std::cout
+        << "Set spawn freeze axes: latLon=" << latitudeLongitude
+        << " altitude=" << altitude
+        << " attitude=" << attitude
+        << std::endl;
+
+    return true;
+}
+
+bool SimConnectClient::transmitClientEvent(
+    ClientEventId eventId,
+    DWORD data,
+    std::string& error
+) {
+    const HRESULT result = SimConnect_TransmitClientEvent(
         simConnect_,
-        "Pause",
-        paused ? 1 : 0,
-        0.0f,
-        nullptr
+        SIMCONNECT_OBJECT_ID_USER,
+        static_cast<DWORD>(eventId),
+        data,
+        SIMCONNECT_GROUP_PRIORITY_HIGHEST,
+        SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY
     );
 
     if (FAILED(result)) {
-        error = hresultMessage(paused ? "Pausing simulator" : "Unpausing simulator", result);
+        error = hresultMessage("Transmitting SimConnect client event", result);
         return false;
     }
 
@@ -781,6 +1167,9 @@ void SimConnectClient::handleAircraftTelemetry(const SIMCONNECT_RECV_SIMOBJECT_D
         << " PITCH_DEG=" << telemetry.pitchDeg
         << " BANK_DEG=" << telemetry.bankDeg
         << " G=" << telemetry.gForce
+        << " FRZ_LATLON=" << telemetry.latitudeLongitudeFreezeOn
+        << " FRZ_ALT=" << telemetry.altitudeFreezeOn
+        << " FRZ_ATT=" << telemetry.attitudeFreezeOn
         << std::endl;
 }
 

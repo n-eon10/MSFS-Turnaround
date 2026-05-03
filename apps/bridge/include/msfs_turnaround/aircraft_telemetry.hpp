@@ -23,6 +23,9 @@ struct AircraftTelemetry {
     double touchdownHeadingDeg;
     double touchdownLatitudeDeg;
     double touchdownLongitudeDeg;
+    double latitudeLongitudeFreezeOn;
+    double altitudeFreezeOn;
+    double attitudeFreezeOn;
 };
 
 }
