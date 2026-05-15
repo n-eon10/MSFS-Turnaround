@@ -392,7 +392,7 @@ bool SimConnectClient::registerAircraftIdentityDefinition(std::string& error) {
         simConnect_,
         static_cast<DWORD>(DataDefinitionId::AircraftIdentity),
         "TITLE",
-        "NULL",
+        nullptr,
         SIMCONNECT_DATATYPE_STRING256
     );
     if (FAILED(result)) {
@@ -404,7 +404,7 @@ bool SimConnectClient::registerAircraftIdentityDefinition(std::string& error) {
         simConnect_,
         static_cast<DWORD>(DataDefinitionId::AircraftIdentity),
         "ATC TYPE",
-        "NULL",
+        nullptr,
         SIMCONNECT_DATATYPE_STRING256
     );
     if (FAILED(result)) {
@@ -416,7 +416,7 @@ bool SimConnectClient::registerAircraftIdentityDefinition(std::string& error) {
         simConnect_,
         static_cast<DWORD>(DataDefinitionId::AircraftIdentity),
         "ATC MODEL",
-        "NULL",
+        nullptr,
         SIMCONNECT_DATATYPE_STRING256
     );
     if (FAILED(result)) {
@@ -448,7 +448,7 @@ bool SimConnectClient::registerInitialPositionDefinition(std::string& error) {
         simConnect_,
         static_cast<DWORD>(DataDefinitionId::InitialPosition),
         "Initial Position",
-        "NULL",
+        nullptr,
         SIMCONNECT_DATATYPE_INITPOSITION
     );
 
