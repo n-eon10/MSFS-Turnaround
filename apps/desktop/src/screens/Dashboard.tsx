@@ -34,11 +34,11 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
               <div className="metric">
                 <div className="lbl">Aircraft</div>
                 <div className="val mono" style={{ fontSize: 18 }}>
-                  {s.aircraft.code ?? <TodoValue />}
+                  {s.aircraft.name ?? <TodoValue />}
                 </div>
                 <div className="sub">
                   {s.aircraft.operator ??
-                    "TODO: publish aircraft title/ATC model from bridge"}
+                    "Waiting for aircraft identity from bridge"}
                 </div>
               </div>
               <div className="metric">

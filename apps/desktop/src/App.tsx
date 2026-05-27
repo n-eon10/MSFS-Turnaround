@@ -163,10 +163,12 @@ function App() {
                     style={{ fontSize: 12, color: "var(--fg)", marginTop: 2 }}
                   >
                     {s.aircraft.code ?? "TODO"}
-                    <span style={{ color: "var(--fg-3)" }}>
-                      {" "}
-                      - backend field missing
-                    </span>
+                    {s.aircraft.name && (
+                      <span style={{ color: "var(--fg-3)" }}>
+                        {" "}
+                        - {s.aircraft.name}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

@@ -203,7 +203,7 @@ const UNKNOWN_RUNWAY: Runway = {
 };
 
 const TODOS = [
-  "Backend does not publish aircraft identity/performance data yet.",
+  "Backend does not publish aircraft performance data yet.",
   "Backend does not publish flight plan or official approach procedure data yet.",
   "Backend does not publish official localizer/glideslope nav receiver data yet.",
   "Backend does not publish bridge PID, latency, or sim rate yet.",
@@ -216,6 +216,56 @@ function numberOrNull(value: number | undefined): number | null {
 
 function simBool(value: number | undefined): boolean {
   return typeof value === "number" && Math.abs(value) >= 0.5;
+}
+
+function knownString(value: string | undefined): string | null {
+  if (!value || value.trim().toLowerCase() === "unknown") {
+    return null;
+  }
+
+  return value.trim();
+}
+
+function adapterDisplayName(name: string | undefined): string | null {
+  const label = knownString(name);
+  return label ? label.replace(/AircraftAdapter$/, "") : null;
+}
+
+function aircraftCodeFromAdapterStatus(
+  status: AircraftAdapterStatus | null
+): string | null {
+  if (!status) {
+    return null;
+  }
+
+  const family = knownString(status.identity.detectedFamily);
+  const variant = knownString(status.identity.detectedVariant);
+  if (family && variant) {
+    return `${family.toUpperCase()} ${variant.toUpperCase()}`;
+  }
+
+  return knownString(status.identity.atcModel)?.toUpperCase() ?? null;
+}
+
+function aircraftProfileFromAdapterStatus(
+  status: AircraftAdapterStatus | null
+): AircraftProfile {
+  if (!status) {
+    return UNKNOWN_AIRCRAFT;
+  }
+
+  const title = knownString(status.identity.title);
+  const atcType = knownString(status.identity.atcType);
+  const adapter = adapterDisplayName(status.adapter.name);
+  const operator = [title, atcType, adapter].filter(Boolean).join(" / ");
+
+  return {
+    ...UNKNOWN_AIRCRAFT,
+    code: aircraftCodeFromAdapterStatus(status) ?? title,
+    name: title,
+    operator: operator || null,
+    icao: knownString(status.identity.atcModel),
+  };
 }
 
 function derivePhase(
@@ -334,6 +384,7 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
   );
 
   const phase = derivePhase(telemetry, landingAnalysis);
+  const aircraft = aircraftProfileFromAdapterStatus(aircraftAdapterStatus);
   const flapsIdx = telemetry ? numberOrNull(telemetry.flapsHandleIndex) : null;
   const runway: Runway = selectedRunway
     ? {
@@ -358,7 +409,7 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
       lastMessageAt,
       hasTelemetry: telemetry !== null,
       simRate: null,
-      aircraft: UNKNOWN_AIRCRAFT,
+      aircraft,
       approach: UNKNOWN_APPROACH,
       runway,
       phase,
