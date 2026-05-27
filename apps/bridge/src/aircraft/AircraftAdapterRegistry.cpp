@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <iostream>
+#include <utility>
 
 namespace msfs_turnaround {
 namespace {
@@ -42,7 +43,9 @@ bool AircraftAdapterRegistry::updateIdentity(const AircraftIdentity& identity) {
 
     identity_ = classified;
     hasIdentity_ = true;
-    activeAdapter_ = &genericAdapter_;
+    activeAdapter_ = identity_.detectedFamily == "fenix"
+        ? static_cast<AircraftAdapter*>(&fenixAdapter_)
+        : static_cast<AircraftAdapter*>(&genericAdapter_);
 
     if (changed) {
         std::cout
@@ -108,13 +111,22 @@ AircraftAdapterCapabilities AircraftAdapterRegistry::capabilities() const {
 }
 
 AircraftIdentity AircraftAdapterRegistry::classifyIdentity(AircraftIdentity identity) const {
+    identity = normalizeAircraftIdentity(std::move(identity));
     const std::string combined = identity.title + " " + identity.atcType + " " + identity.atcModel;
 
     // Extension points for future adapters:
     // FenixA320Adapter, Pmdg737Adapter, FBWA32NXAdapter, IniBuildsAdapter.
     if (contains(combined, "fenix")) {
         identity.detectedFamily = "fenix";
-        identity.detectedVariant = contains(combined, "a320") ? "a320" : "unknown";
+        if (contains(combined, "a319")) {
+            identity.detectedVariant = "a319";
+        } else if (contains(combined, "a320")) {
+            identity.detectedVariant = "a320";
+        } else if (contains(combined, "a321")) {
+            identity.detectedVariant = "a321";
+        } else {
+            identity.detectedVariant = "unknown";
+        }
         identity.isKnownAircraft = true;
         return identity;
     }

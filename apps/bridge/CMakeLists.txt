@@ -19,6 +19,7 @@ add_executable(msfs_turnaround_bridge
     src/scenario/ScenarioSpawner.cpp
     src/aircraft/AircraftIdentity.cpp
     src/aircraft/AircraftAdapterRegistry.cpp
+    src/aircraft/FenixAircraftAdapter.cpp
     src/aircraft/GenericAircraftAdapter.cpp
     src/spawn/AircraftConfigurator.cpp
     src/spawn/ApproachSpawnManager.cpp
