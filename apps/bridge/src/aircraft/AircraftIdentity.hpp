@@ -26,4 +26,7 @@ inline bool operator!=(const AircraftIdentity& left, const AircraftIdentity& rig
     return !(left == right);
 }
 
+std::string normalizeAircraftIdentityField(std::string value);
+AircraftIdentity normalizeAircraftIdentity(AircraftIdentity identity);
+
 }

@@ -1281,6 +1281,7 @@ void SimConnectClient::handleAircraftIdentity(const SIMCONNECT_RECV_SIMOBJECT_DA
     identity.title = rawIdentity->title[0] != '\0' ? rawIdentity->title : "Unknown";
     identity.atcType = rawIdentity->atcType[0] != '\0' ? rawIdentity->atcType : "Unknown";
     identity.atcModel = rawIdentity->atcModel[0] != '\0' ? rawIdentity->atcModel : "Unknown";
+    identity = normalizeAircraftIdentity(std::move(identity));
 
     if (aircraftIdentityCallback_) {
         aircraftIdentityCallback_(identity);
