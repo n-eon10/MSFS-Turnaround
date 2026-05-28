@@ -104,7 +104,7 @@ body {
   flex-shrink: 0;
 }
 .sidebar-brand {
-  padding: 18px 18px 14px;
+  padding: 14px 16px 12px;
   border-bottom: 1px solid var(--border);
 }
 .sidebar-brand .name {
@@ -113,13 +113,6 @@ body {
   font-weight: 700;
   letter-spacing: 0.05em;
   color: var(--fg);
-}
-.sidebar-brand .ver {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  color: var(--fg-3);
-  margin-top: 4px;
-  letter-spacing: 0.04em;
 }
 .nav { padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; }
 .nav-section {
@@ -547,18 +540,26 @@ html, body, #root {
   appearance: none;
   background: transparent;
   border: 0;
-  color: var(--fg-3);
   cursor: pointer;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 5px;
-  font-size: 15px;
-  transition: background 0.12s, color 0.12s;
+  border-radius: 6px;
+  padding: 4px;
+  transition: background 0.12s;
 }
-.nav-rail-toggle:hover { background: var(--panel-3); color: var(--fg); }
+.nav-rail-toggle:hover { background: var(--panel-3); }
+.nav-rail-logo {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  opacity: 0.55;
+  transition: opacity 0.12s;
+  display: block;
+}
+.nav-rail-toggle:hover .nav-rail-logo { opacity: 0.9; }
 .nav-rail-items {
   display: flex;
   flex-direction: column;

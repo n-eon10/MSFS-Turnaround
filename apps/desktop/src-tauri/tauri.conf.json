@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "msfs-turnaround",
+        "title": "MSFS Turnaround",
         "width": 660,
         "height": 750,
         "minWidth": 660,

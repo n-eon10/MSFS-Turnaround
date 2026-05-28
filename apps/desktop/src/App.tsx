@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
+import logoWhite from "./assets/logo-white.png";
 
 import { useSim, type Phase } from "./sim/useSim";
 import { fmt, padHdg } from "./sim/format";
@@ -115,7 +116,7 @@ function App() {
             onClick={() => setNavOpen(true)}
             title="Open navigation"
           >
-            ☰
+            <img src={logoWhite} alt="Turnaround" className="nav-rail-logo" />
           </button>
         </div>
         <div className="nav-rail-items">
