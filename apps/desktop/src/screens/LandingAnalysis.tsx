@@ -1,6 +1,6 @@
 import type { LandingReport, TrajectoryRecord, UseSimResult } from "../sim/useSim";
 import { fmt, padHdg } from "../sim/format";
-import { StatusPill, TodoValue } from "./common";
+import { StatusPill } from "./common";
 import type { LandingStableApproachGate } from "../types/telemetry";
 
 function ScoreBar({ k, v, weight }: { k: string; v: number; weight: number }) {
@@ -513,9 +513,6 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
         <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
             <span className="lbl">DEBRIEF</span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>
-              BACKEND LANDING.ANALYSIS
-            </span>
           </div>
           <div
             className="card-body"
@@ -567,11 +564,6 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
               {r.breakdown.map((b, i) => (
                 <ScoreBar key={i} {...b} />
               ))}
-              <div className="todo-note">
-                Score is backend-calculated from touchdown quality and stable
-                approach gates when available. TODO: expand backend scoring with
-                touchdown zone, centerline, heading alignment, flare, and bounce.
-              </div>
             </div>
           </div>
         </div>
@@ -629,7 +621,6 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
                 {fmt(r.touchdownAirspeedKt)}
                 <span className="unit">KIAS</span>
               </div>
-              <div className="sub">TODO: compare to VRef</div>
             </div>
             <div className="metric">
               <div className="lbl">G-load</div>
@@ -654,7 +645,6 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
                 {padHdg(r.touchdownHeadingDeg)}
                 <span className="unit">DEG</span>
               </div>
-              <div className="sub">TODO: compare to runway course</div>
             </div>
             <div className="metric">
               <div className="lbl">Pitch</div>
@@ -686,42 +676,6 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
-        <div className="card flex-1">
-          <div className="card-head">
-            <span className="lbl">NOT IMPLEMENTED END TO END</span>
-            <StatusPill kind="warn">TODO</StatusPill>
-          </div>
-          <div
-            className="card-body"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              fontSize: 12.5,
-              lineHeight: 1.6,
-              color: "var(--fg-2)",
-            }}
-          >
-            <div>
-              <TodoValue /> touchdown distance from threshold is not calculated
-              in landing analysis yet.
-            </div>
-            <div>
-              <TodoValue /> touchdown centerline deviation is not calculated in
-              landing analysis yet.
-            </div>
-            <div>
-              <TodoValue /> flare quality and bounce detection require a short
-              touchdown-window telemetry buffer in the backend.
-            </div>
-            <div>
-              <TodoValue /> speed score needs aircraft VRef/VApp data from either
-              SimConnect or a backend aircraft profile.
-            </div>
-          </div>
-        </div>
-      </div>
     </>
   );
 }

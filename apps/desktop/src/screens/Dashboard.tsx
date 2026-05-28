@@ -1,6 +1,6 @@
 import type { UseSimResult } from "../sim/useSim";
 import { fmt, padHdg, sign } from "../sim/format";
-import { StatusPill, TodoValue } from "./common";
+import { StatusPill } from "./common";
 
 function bridgeKind(status: string): "good" | "warn" | "bad" {
   if (status === "connected") return "good";
@@ -30,37 +30,25 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
             <span className={`badge ${phaseClass}`}>{s.phase.toUpperCase()}</span>
           </div>
           <div className="card-body">
-            <div className="grid-3">
+            <div className="grid-2">
               <div className="metric">
                 <div className="lbl">Aircraft</div>
                 <div className="val mono" style={{ fontSize: 18 }}>
-                  {s.aircraft.name ?? <TodoValue />}
+                  {s.aircraft.name ?? "—"}
                 </div>
                 <div className="sub">
-                  {s.aircraft.operator ??
-                    "Waiting for aircraft identity from bridge"}
+                  {s.aircraft.operator ?? "Waiting for aircraft identity"}
                 </div>
               </div>
               <div className="metric">
-                <div className="lbl">Departure</div>
+                <div className="lbl">Approach Runway</div>
                 <div className="val mono" style={{ fontSize: 18 }}>
-                  <TodoValue />
-                </div>
-                <div className="sub">TODO: backend flight plan endpoint/message</div>
-              </div>
-              <div className="metric">
-                <div className="lbl">Destination</div>
-                <div className="val mono" style={{ fontSize: 18 }}>
-                  {s.runway.airport && s.runway.runway ? (
-                    `${s.runway.airport}/${s.runway.runway}`
-                  ) : (
-                    <TodoValue />
-                  )}
+                  {s.runway.airport && s.runway.runway
+                    ? `${s.runway.airport}/${s.runway.runway}`
+                    : "—"}
                 </div>
                 <div className="sub">
-                  {selectedRunway
-                    ? "Selected through bridge navdata"
-                    : "TODO: select an airport/runway"}
+                  {selectedRunway ? "Selected via navdata" : "Select in Airport Setup"}
                 </div>
               </div>
             </div>
@@ -83,19 +71,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
                 {s.hasTelemetry ? "LIVE" : "WAITING"}
               </div>
               <div className="k">Last message</div>
-              <div className="v">{lastMessageAge ?? <TodoValue />}</div>
-              <div className="k">Bridge PID</div>
-              <div className="v">
-                <TodoValue />
-              </div>
-              <div className="k">Latency</div>
-              <div className="v">
-                <TodoValue />
-              </div>
-              <div className="k">Sim rate</div>
-              <div className="v">
-                <TodoValue />
-              </div>
+              <div className="v">{lastMessageAge ?? "—"}</div>
             </div>
           </div>
         </div>
@@ -106,7 +82,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
           <div className="card-head">
             <span className="lbl">LIVE TELEMETRY</span>
             <span className={`badge ${s.hasTelemetry ? "live" : ""}`}>
-              {s.hasTelemetry ? "SIMCONNECT" : "NO DATA"}
+              {s.hasTelemetry ? "LIVE" : "NO DATA"}
             </span>
           </div>
           <div className="card-body grid-4" style={{ gap: 22 }}>
@@ -159,13 +135,13 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
                 className={`val ${s.gearDown ? "good" : ""}`}
                 style={{ fontSize: 18 }}
               >
-                {s.gearDown === null ? <TodoValue /> : s.gearDown ? "DOWN" : "UP"}
+                {s.gearDown === null ? "—" : s.gearDown ? "DOWN" : "UP"}
               </div>
             </div>
             <div className="metric sm">
               <div className="lbl">Flaps</div>
               <div className="val" style={{ fontSize: 18 }}>
-                {s.flapsLabel ?? <TodoValue />}
+                {s.flapsLabel ?? "—"}
               </div>
             </div>
           </div>
@@ -177,13 +153,13 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
           <div className="card-head">
             <span className="lbl">ACTIVE RUNWAY</span>
             <StatusPill kind={selectedRunway ? "good" : "warn"}>
-              {selectedRunway ? "SELECTED" : "TODO"}
+              {selectedRunway ? "SELECTED" : "NONE"}
             </StatusPill>
           </div>
           <div className="card-body">
             {!selectedRunway && (
               <div className="todo-note" style={{ marginBottom: 14 }}>
-                Use Airport Setup to search navdata and select a runway.
+                Use Airport Setup to search and select a runway.
               </div>
             )}
             <div className="grid-4" style={{ gap: 22 }}>
@@ -192,25 +168,25 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
                 <div className="val mono" style={{ fontSize: 16 }}>
                   {selectedRunway
                     ? `${selectedRunway.airportIdent}/${selectedRunway.runwayIdent}`
-                    : <TodoValue />}
+                    : "—"}
                 </div>
               </div>
               <div className="metric">
                 <div className="lbl">Course</div>
                 <div className="val mono" style={{ fontSize: 16 }}>
-                  {selectedRunway ? `${padHdg(selectedRunway.headingDegT)} DEG` : <TodoValue />}
+                  {selectedRunway ? `${padHdg(selectedRunway.headingDegT)} DEG` : "—"}
                 </div>
               </div>
               <div className="metric">
                 <div className="lbl">Length</div>
                 <div className="val mono" style={{ fontSize: 16 }}>
-                  {selectedRunway ? `${fmt(selectedRunway.lengthFt)} FT` : <TodoValue />}
+                  {selectedRunway ? `${fmt(selectedRunway.lengthFt)} FT` : "—"}
                 </div>
               </div>
               <div className="metric">
                 <div className="lbl">Width</div>
                 <div className="val mono" style={{ fontSize: 16 }}>
-                  {selectedRunway ? `${fmt(selectedRunway.widthFt)} FT` : <TodoValue />}
+                  {selectedRunway ? `${fmt(selectedRunway.widthFt)} FT` : "—"}
                 </div>
               </div>
             </div>
@@ -246,7 +222,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
                     <div className="k">G</div>
                     <div className="v">
                       {s.report.touchdownGForce === null
-                        ? "-"
+                        ? "—"
                         : s.report.touchdownGForce.toFixed(2)}
                     </div>
                   </div>
@@ -256,7 +232,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
               <div
                 style={{ color: "var(--fg-3)", fontSize: 12, fontStyle: "italic" }}
               >
-                No landing.analysis message received from the bridge yet.
+                No landing recorded yet.
               </div>
             )}
           </div>

@@ -8,7 +8,7 @@ import type {
 } from "../types/telemetry";
 import type { UseSimResult } from "../sim/useSim";
 import { fmt, padHdg } from "../sim/format";
-import { StatusPill, TodoValue } from "./common";
+import { StatusPill } from "./common";
 
 const FEET_PER_NM = 6076.12;
 
@@ -309,7 +309,7 @@ export function ScenarioSetup({
                 {selectedRunway ? (
                   `${selectedRunway.airportIdent} ${selectedRunway.runwayIdent}`
                 ) : (
-                  <TodoValue label="NONE" />
+                  "—"
                 )}
               </div>
             </div>

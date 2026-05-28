@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import type { NavAirport, NavRunwayEnd } from "../types/telemetry";
 import type { UseSimResult } from "../sim/useSim";
 import { fmt, padHdg } from "../sim/format";
-import { StatusPill, TodoValue } from "./common";
+import { StatusPill } from "./common";
 
 function AirportResult({
   airport,
@@ -191,13 +191,13 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
             <div className="metric">
               <div className="lbl">Airport</div>
               <div className="val mono" style={{ fontSize: 22 }}>
-                {selectedRunway?.airportIdent ?? <TodoValue label="NONE" />}
+                {selectedRunway?.airportIdent ?? "—"}
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Runway</div>
               <div className="val mono" style={{ fontSize: 22 }}>
-                {selectedRunway?.runwayIdent ?? <TodoValue label="NONE" />}
+                {selectedRunway?.runwayIdent ?? "—"}
               </div>
               <div className="sub">
                 Opposite {selectedRunway?.oppositeIdent || "-"}
@@ -248,18 +248,6 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
-        <div className="card flex-1">
-          <div className="card-head">
-            <span className="lbl">OUT OF SCOPE FOR THIS MILESTONE</span>
-            <StatusPill kind="warn">TODO</StatusPill>
-          </div>
-          <div className="card-body todo-note">
-            Navaids, airport frequencies, official ILS/RNAV procedures, and
-            approach guidance calculations are not implemented yet.
-          </div>
-        </div>
-      </div>
     </>
   );
 }

@@ -27,11 +27,11 @@ const PHASE_LABEL: Record<Phase, string> = {
 };
 
 const PAGE_TITLES: Record<AppPage, { h: string; crumb: string }> = {
-  dashboard: { h: "Flight Dashboard", crumb: "BRIDGE / LIVE DATA" },
-  setup: { h: "Airport / Runway Setup", crumb: "NAVDATA / LOCAL SQLITE" },
-  scenario: { h: "Scenario Setup", crumb: "SIMCONNECT / FINAL APPROACH" },
-  monitor: { h: "Live Telemetry Monitor", crumb: "SIMCONNECT / WEBSOCKET" },
-  analysis: { h: "Landing Analysis", crumb: "BRIDGE / TOUCHDOWN EVENT" },
+  dashboard: { h: "Flight Dashboard", crumb: "OVERVIEW" },
+  setup: { h: "Airport / Runway Setup", crumb: "NAVDATA SEARCH" },
+  scenario: { h: "Scenario Setup", crumb: "FINAL APPROACH" },
+  monitor: { h: "Live Telemetry Monitor", crumb: "LIVE TELEMETRY" },
+  analysis: { h: "Landing Analysis", crumb: "TOUCHDOWN DEBRIEF" },
 };
 
 function utcNow(): string {
@@ -248,11 +248,7 @@ function App() {
             <span>
               HDG {padHdg(s.heading)} / IAS {fmt(s.ias)}
             </span>
-            <span>
-              {s.distNm === null
-                ? "DIST TODO"
-                : `${s.distNm.toFixed(2)} NM`}
-            </span>
+            {s.distNm !== null && <span>{s.distNm.toFixed(2)} NM</span>}
           </div>
         </div>
         <div className="pane-body">{renderScreen()}</div>

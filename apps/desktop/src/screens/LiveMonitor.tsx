@@ -1,6 +1,6 @@
 import type { UseSimResult } from "../sim/useSim";
 import { fmt, padHdg, sign } from "../sim/format";
-import { StatusPill, TodoValue } from "./common";
+import { StatusPill } from "./common";
 import type { ApproachStabilityGate } from "../types/telemetry";
 
 function valueClass(value: number | null, warnAt: number, badAt: number): string {
@@ -9,18 +9,6 @@ function valueClass(value: number | null, warnAt: number, badAt: number): string
   if (abs >= badAt) return "bad";
   if (abs >= warnAt) return "warn";
   return "";
-}
-
-function todoMetric(label: string, note: string) {
-  return (
-    <div className="metric sm">
-      <div className="lbl">{label}</div>
-      <div className="val">
-        <TodoValue />
-      </div>
-      <div className="sub">{note}</div>
-    </div>
-  );
 }
 
 function lateralLabel(valueM: number): string {
@@ -153,7 +141,6 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                 {fmt(s.ias)}
                 <span className="unit">KT</span>
               </div>
-              <div className="sub">TODO: VApp target from aircraft data</div>
             </div>
             <div className="metric lg">
               <div className="lbl">Radio Alt</div>
@@ -170,7 +157,6 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                 {fmt(s.vs)}
                 <span className="unit">FPM</span>
               </div>
-              <div className="sub">Real SimConnect vertical speed</div>
             </div>
           </div>
         </div>
@@ -191,19 +177,19 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
             <div className="metric sm">
               <div className="lbl">Latitude</div>
               <div className="val mono">
-                {s.lat === null ? "-" : s.lat.toFixed(5)}
+                {s.lat === null ? "—" : s.lat.toFixed(5)}
               </div>
             </div>
             <div className="metric sm">
               <div className="lbl">Longitude</div>
               <div className="val mono">
-                {s.lon === null ? "-" : s.lon.toFixed(5)}
+                {s.lon === null ? "—" : s.lon.toFixed(5)}
               </div>
             </div>
             <div className="metric sm">
               <div className="lbl">Runway distance</div>
               <div className="val">
-                {guidance ? fmt(guidance.distanceNm, 1) : <TodoValue label="NONE" />}
+                {guidance ? fmt(guidance.distanceNm, 1) : "—"}
                 {guidance && <span className="unit">NM</span>}
               </div>
               <div className="sub">
@@ -229,7 +215,7 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                 <span className="unit">DEG</span>
               </div>
               <div className="sub">
-                RWY {guidance ? padHdg(guidance.runwayHeadingDeg) : "---"} DEG
+                RWY {guidance ? padHdg(guidance.runwayHeadingDeg) : "—"} DEG
               </div>
             </div>
             <div className="metric">
@@ -287,20 +273,20 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                   ? `${guidance.airportIdent} ${guidance.runwayIdent}`
                   : selectedRunway
                     ? `${selectedRunway.airportIdent} ${selectedRunway.runwayIdent}`
-                    : <TodoValue label="NONE" />}
+                    : "—"}
               </div>
             </div>
             <div className="metric sm">
               <div className="lbl">Bearing to threshold</div>
               <div className="val">
-                {guidance ? fmt(guidance.bearingToThresholdDeg, 1) : "-"}
+                {guidance ? fmt(guidance.bearingToThresholdDeg, 1) : "—"}
                 {guidance && <span className="unit">DEG</span>}
               </div>
             </div>
             <div className="metric sm">
               <div className="lbl">Runway heading</div>
               <div className="val">
-                {guidance ? fmt(guidance.runwayHeadingDeg, 1) : "-"}
+                {guidance ? fmt(guidance.runwayHeadingDeg, 1) : "—"}
                 {guidance && <span className="unit">DEG</span>}
               </div>
             </div>
@@ -311,7 +297,7 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                   guidance && Math.abs(guidance.courseErrorDeg) > 10 ? "warn" : ""
                 }`}
               >
-                {guidance ? `${sign(guidance.courseErrorDeg)}${fmt(guidance.courseErrorDeg, 1)}` : "-"}
+                {guidance ? `${sign(guidance.courseErrorDeg)}${fmt(guidance.courseErrorDeg, 1)}` : "—"}
                 {guidance && <span className="unit">DEG</span>}
               </div>
             </div>
@@ -324,21 +310,21 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                     : ""
                 }`}
               >
-                {guidance ? lateralLabel(guidance.lateralDeviationM) : "-"}
+                {guidance ? lateralLabel(guidance.lateralDeviationM) : "—"}
               </div>
               <div className="sub">Positive is right inbound</div>
             </div>
             <div className="metric sm">
               <div className="lbl">Along-track</div>
               <div className="val">
-                {guidance ? fmt(guidance.alongTrackDistanceNm, 1) : "-"}
+                {guidance ? fmt(guidance.alongTrackDistanceNm, 1) : "—"}
                 {guidance && <span className="unit">NM</span>}
               </div>
             </div>
             <div className="metric sm">
               <div className="lbl">Glide target</div>
               <div className="val">
-                {guidance ? fmt(guidance.glidepathTargetAltitudeFt) : "-"}
+                {guidance ? fmt(guidance.glidepathTargetAltitudeFt) : "—"}
                 {guidance && <span className="unit">FT</span>}
               </div>
               <div className="sub">
@@ -354,7 +340,7 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                     : ""
                 }`}
               >
-                {guidance ? glidepathLabel(guidance.glidepathDeviationFt) : "-"}
+                {guidance ? glidepathLabel(guidance.glidepathDeviationFt) : "—"}
               </div>
             </div>
           </div>
@@ -391,8 +377,8 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
               )
             ) : (
               <div className="todo-note">
-                Select a runway and wait for live telemetry to receive runway-based
-                approach guidance from the bridge.
+                Select a runway and wait for live telemetry to receive approach
+                guidance from the bridge.
               </div>
             )}
           </div>
@@ -412,8 +398,7 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
           <div className="card-body grid-4" style={{ gap: 22 }}>
             <div className="metric sm">
               <div className="lbl">Flaps</div>
-              <div className="val">{s.flapsLabel ?? <TodoValue />}</div>
-              <div className="sub">SimConnect handle index</div>
+              <div className="val">{s.flapsLabel ?? "—"}</div>
             </div>
             <div className="metric sm">
               <div className="lbl">Gear</div>
@@ -422,9 +407,8 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                   s.gearDown === null ? "" : s.gearDown ? "good" : "warn"
                 }`}
               >
-                {s.gearDown === null ? <TodoValue /> : s.gearDown ? "DOWN" : "UP"}
+                {s.gearDown === null ? "—" : s.gearDown ? "DOWN" : "UP"}
               </div>
-              <div className="sub">SimConnect gear handle</div>
             </div>
             <div className="metric sm">
               <div className="lbl">Ground speed</div>
@@ -433,11 +417,6 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                 <span className="unit">KT</span>
               </div>
             </div>
-            {todoMetric("Spoilers", "TODO: publish spoiler armed/deployed state")}
-            {todoMetric("Autobrake", "TODO: publish autobrake state")}
-            {todoMetric("N1", "TODO: publish engine telemetry")}
-            {todoMetric("Wind", "TODO: publish ambient wind")}
-            {todoMetric("Checklist", "TODO: backend checklist model")}
           </div>
         </div>
       </div>
