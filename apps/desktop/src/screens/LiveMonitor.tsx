@@ -143,8 +143,8 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
             className="card-body"
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr",
-              gap: 28,
+              gridTemplateColumns: "1fr 1fr",
+              gap: 20,
             }}
           >
             <div className="metric lg">
@@ -175,7 +175,7 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
           </div>
         </div>
 
-        <div className="card" style={{ width: 260 }}>
+        <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
             <span className="lbl">POSITION</span>
           </div>

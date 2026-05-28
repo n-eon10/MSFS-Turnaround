@@ -538,7 +538,7 @@ export function ScenarioSetup({
           </div>
         </div>
 
-        <div className="card" style={{ width: 420 }} ref={resultCardRef}>
+        <div className="card" style={{ flex: 1 }} ref={resultCardRef}>
           <div className="card-head">
             <span className="lbl">SCENARIO STATUS</span>
             <StatusPill

@@ -58,6 +58,7 @@ function bridgeStatusLabel(status: string): string {
 function App() {
   const [page, setPage] = useState<AppPage>("dashboard");
   const [clock, setClock] = useState(utcNow());
+  const [navOpen, setNavOpen] = useState(false);
   const autoRoutedReportRef = useRef<unknown>(null);
 
   const sim = useSim();
@@ -105,103 +106,157 @@ function App() {
 
   return (
     <div className="app">
-            <div className="sidebar">
-              <div className="sidebar-brand">
-                <div className="name">MSFS TURNAROUND</div>
-              </div>
-              <div className="nav">
-                <div className="nav-section">PANELS</div>
-                {NAV.map((n) => (
-                  <button
-                    key={n.id}
-                    type="button"
-                    className={`nav-item ${page === n.id ? "active" : ""}`}
-                    onClick={() => setPage(n.id)}
-                  >
-                    <span className="num">{n.num}</span>
-                    <span>{n.label}</span>
-                  </button>
-                ))}
-                <div className="nav-section">FLIGHT</div>
-                <div style={{ padding: "4px 10px" }}>
-                  <div
-                    style={{
-                      fontFamily: "JetBrains Mono, monospace",
-                      fontSize: 10,
-                      color: "var(--fg-3)",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    PHASE
-                  </div>
-                  <div
-                    className="mono"
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "var(--fg)",
-                      marginTop: 2,
-                      letterSpacing: "0.06em",
-                    }}
-                  >
-                    {PHASE_LABEL[s.phase]}
-                  </div>
-                </div>
-                <div style={{ padding: "8px 10px 4px" }}>
-                  <div
-                    style={{
-                      fontFamily: "JetBrains Mono, monospace",
-                      fontSize: 10,
-                      color: "var(--fg-3)",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    AIRCRAFT
-                  </div>
-                  <div
-                    className="mono"
-                    style={{ fontSize: 12, color: "var(--fg)", marginTop: 2 }}
-                  >
-                    {s.aircraft.code ?? "TODO"}
-                    {s.aircraft.name && (
-                      <span style={{ color: "var(--fg-3)" }}>
-                        {" "}
-                        - {s.aircraft.name}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="sidebar-foot">
-                <div className={`conn ${s.connected ? "" : "bad"}`}>
-                  <span className="dot"></span> {s.bridgeUrl}
-                </div>
-                <div>{bridgeStatus}</div>
-                <div>{clock}</div>
-              </div>
-            </div>
+      {/* Narrow icon rail — always visible */}
+      <div className="nav-rail">
+        <div className="nav-rail-brand">
+          <button
+            className="nav-rail-toggle"
+            type="button"
+            onClick={() => setNavOpen(true)}
+            title="Open navigation"
+          >
+            ☰
+          </button>
+        </div>
+        <div className="nav-rail-items">
+          {NAV.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              className={`nav-rail-item ${page === n.id ? "active" : ""}`}
+              onClick={() => setPage(n.id)}
+              title={n.label}
+            >
+              {n.num}
+            </button>
+          ))}
+        </div>
+        <div className="nav-rail-foot">
+          <span
+            className={`dot ${s.connected ? "" : "bad"}`}
+            title={`${s.bridgeUrl} — ${bridgeStatus}`}
+          />
+        </div>
+      </div>
 
-            <div className="pane">
-              <div className="pane-head">
-                <div className="h-l">
-                  <h1>{pt.h}</h1>
-                  <span className="crumb">{pt.crumb}</span>
-                </div>
-                <div className="tools">
-                  {page === "monitor" && s.connected && <span>LIVE TELEMETRY</span>}
-                  <span>ALT {fmt(s.altMSL)} FT</span>
-                  <span>
-                    HDG {padHdg(s.heading)} / IAS {fmt(s.ias)}
-                  </span>
-                  <span>
-                    {s.distNm === null
-                      ? "DIST TODO"
-                      : `${s.distNm.toFixed(2)} NM`}
-                  </span>
-                </div>
-              </div>
-              <div className="pane-body">{renderScreen()}</div>
+      {/* Backdrop — click to close overlay */}
+      {navOpen && (
+        <div
+          className="nav-overlay-backdrop"
+          onClick={() => setNavOpen(false)}
+        />
+      )}
+
+      {/* Slide-in navigation panel */}
+      <div className={`sidebar nav-overlay${navOpen ? " open" : ""}`}>
+        <div
+          className="sidebar-brand"
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+        >
+          <div className="name">MSFS TURNAROUND</div>
+          <button
+            className="nav-close"
+            type="button"
+            onClick={() => setNavOpen(false)}
+            title="Close navigation"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="nav">
+          <div className="nav-section">PANELS</div>
+          {NAV.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              className={`nav-item ${page === n.id ? "active" : ""}`}
+              onClick={() => { setPage(n.id); setNavOpen(false); }}
+            >
+              <span className="num">{n.num}</span>
+              <span>{n.label}</span>
+            </button>
+          ))}
+          <div className="nav-section">FLIGHT</div>
+          <div style={{ padding: "4px 10px" }}>
+            <div
+              style={{
+                fontFamily: "JetBrains Mono, monospace",
+                fontSize: 10,
+                color: "var(--fg-3)",
+                letterSpacing: "0.08em",
+              }}
+            >
+              PHASE
             </div>
+            <div
+              className="mono"
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--fg)",
+                marginTop: 2,
+                letterSpacing: "0.06em",
+              }}
+            >
+              {PHASE_LABEL[s.phase]}
+            </div>
+          </div>
+          <div style={{ padding: "8px 10px 4px" }}>
+            <div
+              style={{
+                fontFamily: "JetBrains Mono, monospace",
+                fontSize: 10,
+                color: "var(--fg-3)",
+                letterSpacing: "0.08em",
+              }}
+            >
+              AIRCRAFT
+            </div>
+            <div
+              className="mono"
+              style={{ fontSize: 12, color: "var(--fg)", marginTop: 2 }}
+            >
+              {s.aircraft.code ?? "TODO"}
+              {s.aircraft.name && (
+                <span style={{ color: "var(--fg-3)" }}>
+                  {" "}
+                  - {s.aircraft.name}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="sidebar-foot">
+          <div className={`conn ${s.connected ? "" : "bad"}`}>
+            <span className="dot"></span> {s.bridgeUrl}
+          </div>
+          <div>{bridgeStatus}</div>
+          <div>{clock}</div>
+        </div>
+      </div>
+
+      {/* Main content pane */}
+      <div className="pane">
+        <div className="pane-head">
+          <div className="h-l">
+            <h1>{pt.h}</h1>
+            <span className="crumb">{pt.crumb}</span>
+          </div>
+          <div className="tools">
+            {page === "monitor" && s.connected && <span>LIVE TELEMETRY</span>}
+            <span>ALT {fmt(s.altMSL)} FT</span>
+            <span>
+              HDG {padHdg(s.heading)} / IAS {fmt(s.ias)}
+            </span>
+            <span>
+              {s.distNm === null
+                ? "DIST TODO"
+                : `${s.distNm.toFixed(2)} NM`}
+            </span>
+          </div>
+        </div>
+        <div className="pane-body">{renderScreen()}</div>
+      </div>
     </div>
   );
 }

@@ -291,7 +291,7 @@ function TelemetryTrack({
   }
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="runway-svg" style={{ height: H }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="runway-svg">
       <defs>
         <linearGradient id="altGrad" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="hsl(20, 75%, 62%)" />

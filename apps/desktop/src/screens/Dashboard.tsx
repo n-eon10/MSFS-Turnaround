@@ -67,7 +67,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
           </div>
         </div>
 
-        <div className="card" style={{ width: 340 }}>
+        <div className="card flex-1">
           <div className="card-head">
             <span className="lbl">BRIDGE</span>
             <StatusPill kind={bridgeKind(s.bridgeStatus)}>
@@ -217,7 +217,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
           </div>
         </div>
 
-        <div className="card" style={{ width: 340 }}>
+        <div className="card flex-1">
           <div className="card-head">
             <span className="lbl">LAST LANDING</span>
           </div>
