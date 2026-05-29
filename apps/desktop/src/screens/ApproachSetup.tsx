@@ -248,6 +248,7 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
+      {/* TODO: Navaid / approach procedure search — ILS frequency, RNAV approach, VOR approach data out of scope for initial milestone */}
     </>
   );
 }

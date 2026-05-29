@@ -30,6 +30,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
             <span className={`badge ${phaseClass}`}>{s.phase.toUpperCase()}</span>
           </div>
           <div className="card-body">
+            {/* TODO: Departure airport metric — needs flight plan backend integration */}
             <div className="grid-2">
               <div className="metric">
                 <div className="lbl">Aircraft</div>
@@ -72,6 +73,9 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
               </div>
               <div className="k">Last message</div>
               <div className="v">{lastMessageAge ?? "—"}</div>
+              {/* TODO: Bridge PID — expose process ID from bridge health message */}
+              {/* TODO: Message latency — measure round-trip from heartbeat timestamp */}
+              {/* TODO: Sim rate — expose SIMULATION RATE simvar from SimConnect */}
             </div>
           </div>
         </div>

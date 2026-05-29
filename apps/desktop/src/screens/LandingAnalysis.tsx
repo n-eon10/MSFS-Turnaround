@@ -563,6 +563,7 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
               {r.breakdown.map((b, i) => (
                 <ScoreBar key={i} {...b} />
               ))}
+              {/* TODO: Expand scoring — add crosswind component, spoiler/reverser deployment, flap configuration score */}
             </div>
           </div>
         </div>
@@ -620,6 +621,7 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
                 {fmt(r.touchdownAirspeedKt)}
                 <span className="unit">KIAS</span>
               </div>
+              {/* TODO: Compare to VRef — requires aircraft VRef from adapter */}
             </div>
             <div className="metric">
               <div className="lbl">G-load</div>
@@ -644,6 +646,7 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
                 {padHdg(r.touchdownHeadingDeg)}
                 <span className="unit">DEG</span>
               </div>
+              {/* TODO: Compare to runway course — requires selectedRunway stored in landing report */}
             </div>
             <div className="metric">
               <div className="lbl">Pitch</div>
@@ -675,6 +678,13 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
+      {/*
+        TODO: Additional touchdown metrics (not yet wired end-to-end):
+        - Touchdown distance from threshold — needs GPS coords correlated with runway threshold
+        - Centreline deviation at touchdown — needs runway-aligned coordinate transform on landing position
+        - Flare and bounce detection — analyse altitude/VS profile in final 50 ft AGL window
+        - Speed deviation from VRef — needs VRef value emitted by aircraft adapter
+      */}
     </>
   );
 }

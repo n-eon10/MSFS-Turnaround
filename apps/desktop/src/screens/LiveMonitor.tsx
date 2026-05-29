@@ -141,6 +141,7 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                 {fmt(s.ias)}
                 <span className="unit">KT</span>
               </div>
+              {/* TODO: VApp target from aircraft adapter — show deviation from target approach speed */}
             </div>
             <div className="metric lg">
               <div className="lbl">Radio Alt</div>
@@ -416,6 +417,11 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
                 <span className="unit">KT</span>
               </div>
             </div>
+            {/* TODO: Spoilers — SPOILERS HANDLE POSITION simvar, show as pct or armed/deployed */}
+            {/* TODO: Autobrake — AUTOBRAKES ACTIVE / AUTO BRAKE SWITCH CB simvar */}
+            {/* TODO: N1 — ENG N1 RPM PCT for each engine, check for adequate go-around thrust */}
+            {/* TODO: Wind — AMBIENT WIND VELOCITY + AMBIENT WIND DIRECTION simvars */}
+            {/* TODO: Landing checklist items — requires adapter-level checklist verification support */}
           </div>
         </div>
       </div>

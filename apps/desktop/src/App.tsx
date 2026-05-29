@@ -250,6 +250,7 @@ function App() {
               HDG {padHdg(s.heading)} / IAS {fmt(s.ias)}
             </span>
             {s.distNm !== null && <span>{s.distNm.toFixed(2)} NM</span>}
+            {/* TODO: Show TO/FROM label alongside distance (e.g. "2.14 NM TO RWY") */}
           </div>
         </div>
         <div className="pane-body">{renderScreen()}</div>
