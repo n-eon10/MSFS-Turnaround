@@ -69,12 +69,21 @@ export function useBridgeTelemetry() {
 
       const socket = new WebSocket(BRIDGE_URL);
       socketRef.current = socket;
+      const isCurrentSocket = () => socketRef.current === socket;
 
       socket.onopen = () => {
+        if (!isCurrentSocket()) {
+          return;
+        }
+
         setStatus("connected");
       };
 
       socket.onmessage = (event) => {
+        if (!isCurrentSocket()) {
+          return;
+        }
+
         try {
           const message = JSON.parse(event.data) as BridgeMessage;
 
@@ -202,10 +211,18 @@ export function useBridgeTelemetry() {
       };
 
       socket.onerror = () => {
+        if (!isCurrentSocket()) {
+          return;
+        }
+
         setStatus("error");
       };
 
       socket.onclose = () => {
+        if (!isCurrentSocket()) {
+          return;
+        }
+
         socketRef.current = null;
 
         if (!shouldReconnect) {
