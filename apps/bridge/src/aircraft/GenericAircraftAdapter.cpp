@@ -1,6 +1,7 @@
 #include "aircraft/GenericAircraftAdapter.hpp"
 
 #include "msfs_turnaround/simconnect_client.hpp"
+#include "spawn/ApproachProfiles.hpp"
 
 #include <cmath>
 
@@ -52,6 +53,12 @@ int GenericAircraftAdapter::getTargetFlapConfig(const ApproachScenario& scenario
 
 double GenericAircraftAdapter::getTargetApproachSpeed(const ApproachScenario& scenario) const {
     return scenario.airspeedKt;
+}
+
+ApproachEnergyTarget GenericAircraftAdapter::approachEnergyTarget(
+    const ApproachScenario& scenario
+) const {
+    return makeApproachEnergyTarget(ApproachProfileId::GenericJet, scenario);
 }
 
 bool GenericAircraftAdapter::supportsAdvancedConfig() const {

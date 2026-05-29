@@ -22,6 +22,8 @@ add_executable(msfs_turnaround_bridge
     src/aircraft/FenixAircraftAdapter.cpp
     src/aircraft/GenericAircraftAdapter.cpp
     src/spawn/AircraftConfigurator.cpp
+    src/spawn/ApproachEnergyState.cpp
+    src/spawn/ApproachProfiles.cpp
     src/spawn/ApproachSpawnManager.cpp
     src/spawn/ApproachSpawnStateMachine.cpp
     src/spawn/ReleaseController.cpp

@@ -1,5 +1,6 @@
 #include "spawn/ReleaseController.hpp"
 
+#include "msfs_turnaround/simconnect_client.hpp"
 #include "spawn/SpawnFreezeController.hpp"
 
 #include <iostream>
@@ -7,50 +8,76 @@
 namespace msfs_turnaround {
 namespace {
 
-constexpr auto ReleaseStepDelay = std::chrono::milliseconds(250);
+constexpr auto TranslationSettleDelay = std::chrono::milliseconds(450);
+constexpr auto AttitudeReleaseDelay = std::chrono::milliseconds(350);
 
 }
 
-ReleaseController::ReleaseController(SpawnFreezeController& freezeController)
-    : freezeController_(freezeController) {}
+ReleaseController::ReleaseController(
+    SpawnFreezeController& freezeController,
+    SimConnectClient& simconnect
+)
+    : freezeController_(freezeController), simconnect_(simconnect) {}
 
-void ReleaseController::start() {
-    advance(Step::ReleaseAttitude);
+void ReleaseController::start(
+    const ApproachScenario& scenario,
+    const ApproachEnergyTarget& target
+) {
+    scenario_ = scenario;
+    target_ = target;
+    advance(Step::AssertAndReleaseTranslation);
 }
 
 bool ReleaseController::tick(std::string& error) {
     const auto now = std::chrono::steady_clock::now();
 
+    if (step_ == Step::AssertAndReleaseTranslation) {
+        // Pin the matched velocity vector, optionally engage the autopilot, then free
+        // position + altitude while holding attitude. The aircraft begins translating
+        // and descending along the injected vector before the nose can move.
+        std::string velError;
+        if (!simconnect_.setApproachVelocity(scenario_, target_, velError)) {
+            std::cerr << "[ApproachSpawn] release velocity assert warning: " << velError << std::endl;
+        }
+        if (target_.holdAutopilot) {
+            std::string apError;
+            if (!simconnect_.holdApproachAutopilot(apError)) {
+                std::cerr << "[ApproachSpawn] release autopilot warning: " << apError << std::endl;
+            }
+        }
+        std::cout << "[ApproachSpawn] release step: free translation, hold attitude" << std::endl;
+        if (!freezeController_.setAxes(false, false, true, error)) {
+            step_ = Step::Failed;
+            return false;
+        }
+        advance(Step::SettleTranslation);
+        return true;
+    }
+
+    if (step_ == Step::SettleTranslation) {
+        if (now - stepStartedAt_ < TranslationSettleDelay) {
+            return true;
+        }
+
+        // Re-assert velocity (vector only — no reposition) as drag begins to act.
+        std::string velError;
+        if (!simconnect_.setApproachVelocity(scenario_, target_, velError)) {
+            std::cerr << "[ApproachSpawn] release velocity re-assert warning: " << velError << std::endl;
+        }
+        advance(Step::ReleaseAttitude);
+        return true;
+    }
+
     if (step_ == Step::ReleaseAttitude) {
-        std::cout << "[ApproachSpawn] release step: unfreeze attitude" << std::endl;
-        if (!freezeController_.setAxes(true, true, false, error)) {
-            step_ = Step::Failed;
-            return false;
-        }
-        advance(Step::ReleaseAltitude);
-        return true;
-    }
-
-    if (step_ == Step::ReleaseAltitude) {
-        if (now - stepStartedAt_ < ReleaseStepDelay) {
+        if (now - stepStartedAt_ < AttitudeReleaseDelay) {
             return true;
         }
 
-        std::cout << "[ApproachSpawn] release step: unfreeze altitude" << std::endl;
-        if (!freezeController_.setAxes(true, false, false, error)) {
-            step_ = Step::Failed;
-            return false;
+        std::string velError;
+        if (!simconnect_.setApproachVelocity(scenario_, target_, velError)) {
+            std::cerr << "[ApproachSpawn] release velocity final assert warning: " << velError << std::endl;
         }
-        advance(Step::ReleaseLatitudeLongitude);
-        return true;
-    }
-
-    if (step_ == Step::ReleaseLatitudeLongitude) {
-        if (now - stepStartedAt_ < ReleaseStepDelay) {
-            return true;
-        }
-
-        std::cout << "[ApproachSpawn] release step: unfreeze latitude/longitude" << std::endl;
+        std::cout << "[ApproachSpawn] release step: free attitude (full handoff)" << std::endl;
         if (!freezeController_.unfreezeAll(error)) {
             step_ = Step::Failed;
             return false;

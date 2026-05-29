@@ -20,6 +20,9 @@ public:
 
     int getTargetFlapConfig(const ApproachScenario& scenario) const override;
     double getTargetApproachSpeed(const ApproachScenario& scenario) const override;
+    ApproachEnergyTarget approachEnergyTarget(
+        const ApproachScenario& scenario
+    ) const override;
     bool supportsAdvancedConfig() const override;
     std::string name() const override;
     AircraftAdapterCapabilities capabilities() const override;

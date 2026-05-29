@@ -1,6 +1,7 @@
 #include "aircraft/FenixAircraftAdapter.hpp"
 
 #include "msfs_turnaround/simconnect_client.hpp"
+#include "spawn/ApproachProfiles.hpp"
 
 #include <cmath>
 
@@ -52,6 +53,12 @@ int FenixAircraftAdapter::getTargetFlapConfig(const ApproachScenario& scenario) 
 
 double FenixAircraftAdapter::getTargetApproachSpeed(const ApproachScenario& scenario) const {
     return scenario.airspeedKt;
+}
+
+ApproachEnergyTarget FenixAircraftAdapter::approachEnergyTarget(
+    const ApproachScenario& scenario
+) const {
+    return makeApproachEnergyTarget(ApproachProfileId::FenixA320, scenario);
 }
 
 bool FenixAircraftAdapter::supportsAdvancedConfig() const {

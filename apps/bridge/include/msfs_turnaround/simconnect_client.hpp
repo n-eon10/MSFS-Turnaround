@@ -18,6 +18,7 @@
 namespace msfs_turnaround {
 
 struct ApproachScenario;
+struct ApproachEnergyTarget;
 
 class SimConnectClient {
 public:
@@ -37,8 +38,22 @@ public:
     );
     bool stabiliseUserAircraftFlightPath(
         const ApproachScenario& scenario,
+        const ApproachEnergyTarget& target,
         std::string& error
     );
+    // Re-assert only the velocity vector (no reposition) — used during the release
+    // ramp once position/altitude axes are already unfrozen, so the aircraft is not
+    // yanked back to the spawn point.
+    bool setApproachVelocity(
+        const ApproachScenario& scenario,
+        const ApproachEnergyTarget& target,
+        std::string& error
+    );
+    // Guarded approach actuations — only invoked by the spawn pipeline when the
+    // active aircraft profile opts in. Default profiles leave these disabled.
+    bool setElevatorTrim(double trimFraction, std::string& error);
+    bool setThrottlePercent(double throttleFraction, std::string& error);
+    bool holdApproachAutopilot(std::string& error);
     bool setUserAircraftPosition(const ApproachScenario& scenario, std::string& error);
     bool setGenericAircraftConfiguration(
         bool gearDown,
@@ -70,6 +85,8 @@ private:
     bool aircraftIdentityDefinitionRegistered_ = false;
     bool pauseEventsRegistered_ = false;
     bool freezeEventsRegistered_ = false;
+    bool stabilisationEventsRegistered_ = false;
+    bool autopilotEventsRegistered_ = false;
 
     enum class DataDefinitionId : DWORD {
         AircraftTelemetry = 1,
@@ -103,6 +120,10 @@ private:
         Flaps3 = 113,
         Flaps4 = 114,
         FlapsSet = 115,
+        ElevTrimSet = 116,
+        ThrottleSet = 117,
+        AutopilotOn = 118,
+        ApApproachHold = 119,
     };
 
     bool registerInitialPositionDefinition(std::string& error);
@@ -112,18 +133,23 @@ private:
     bool registerPauseEvents(std::string& error);
     bool registerFreezeEvents(std::string& error);
     bool registerConfigurationEvents(std::string& error);
+    bool registerStabilisationEvents(std::string& error);
+    bool registerAutopilotEvents(std::string& error);
     bool registerBodyVelocityDefinition(std::string& error);
     bool registerBodyRotationVelocityDefinition(std::string& error);
     bool setUserAircraftInitialPosition(
         const ApproachScenario& scenario,
+        double pitchDeg,
         std::string& error
     );
     bool setUserAircraftDirectPosition(
         const ApproachScenario& scenario,
+        double pitchDeg,
         std::string& error
     );
     bool setUserAircraftBodyVelocity(
         const ApproachScenario& scenario,
+        const ApproachEnergyTarget& target,
         std::string& error
     );
     bool setUserAircraftBodyRotationVelocity(std::string& error);

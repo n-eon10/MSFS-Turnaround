@@ -1,10 +1,12 @@
 #include "spawn/ApproachSpawnManager.hpp"
 
+#include "aircraft/AircraftAdapter.hpp"
 #include "approach/Geo.hpp"
 #include "msfs_turnaround/simconnect_client.hpp"
 #include "scenario/ScenarioSpawner.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <iostream>
 #include <utility>
 
@@ -16,6 +18,7 @@ constexpr auto ConfigRetryInterval = std::chrono::milliseconds(750);
 constexpr auto ConfigMinimumVerificationTime = std::chrono::milliseconds(1000);
 constexpr auto ConfigurationTimeout = std::chrono::milliseconds(8500);
 constexpr auto StabilisationMinimumTime = std::chrono::milliseconds(1200);
+constexpr auto StabilisationDwell = std::chrono::milliseconds(800);
 constexpr auto StabilisationTimeout = std::chrono::milliseconds(6500);
 constexpr auto TotalSpawnTimeout = std::chrono::milliseconds(30000);
 
@@ -48,9 +51,10 @@ ApproachSpawnManager::ApproachSpawnManager(
 )
     : scenarioSpawner_(scenarioSpawner),
       simconnect_(simconnect),
+      aircraftAdapter_(aircraftAdapter),
       freezeController_(simconnect),
       configurator_(simconnect, aircraftAdapter),
-      releaseController_(freezeController_) {}
+      releaseController_(freezeController_, simconnect) {}
 
 void ApproachSpawnManager::setStatusCallback(StatusCallback callback) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -81,8 +85,9 @@ ScenarioSpawnResult ApproachSpawnManager::start(
     configurationTimedOut_ = false;
     physicalConfigCommandSent_ = false;
     flightPathCommandSent_ = false;
-    airspeedRefreshSent_ = false;
     releaseRequested_ = false;
+    energyStable_ = false;
+    energyState_ = ApproachEnergyState {};
     configAttempts_ = 0;
 
     ApproachScenario preparedScenario;
@@ -100,6 +105,7 @@ ScenarioSpawnResult ApproachSpawnManager::start(
     }
 
     scenario_ = preparedScenario;
+    energyTarget_ = aircraftAdapter_.approachEnergyTarget(scenario_);
     warnings_ = result.warnings;
     hasScenario_ = true;
     spawnStartedAt_ = std::chrono::steady_clock::now();
@@ -231,35 +237,21 @@ void ApproachSpawnManager::tick(const AircraftTelemetry& telemetry) {
 
         case ApproachSpawnState::StabiliseSimState: {
             if (!flightPathCommandSent_) {
+                stabiliseStartedAt_ = std::chrono::steady_clock::now();
+                energyStable_ = false;
                 std::string error;
-                if (!configurator_.applyFlightPathState(scenario_, error)) {
+                if (!configurator_.applyFlightPathState(scenario_, energyTarget_, error)) {
                     appendWarningOnce(error);
                 }
                 flightPathCommandSent_ = true;
-                return;
             }
 
-            if (!airspeedRefreshSent_ &&
-                std::isfinite(telemetry.indicatedAirspeedKt) &&
-                telemetry.indicatedAirspeedKt < scenario_.airspeedKt - 40.0) {
-                std::string error;
-                if (!simconnect_.teleportUserAircraftToInitialPosition(scenario_, error)) {
-                    appendWarningOnce(error);
-                } else {
-                    appendWarningOnce("Low IAS after teleport; sent one bounded INITPOSITION airspeed refresh");
-                    if (!freezeController_.freezeAll(error)) {
-                        appendWarningOnce(error);
-                    } else {
-                        holdActive_ = true;
-                    }
-                }
-                airspeedRefreshSent_ = true;
-                return;
-            }
-
-            if (!elapsedSinceState(StabilisationMinimumTime)) {
-                return;
-            }
+            // Evaluate the live energy state against the aircraft profile target and
+            // stream it for diagnostics. While frozen the measured energy may not
+            // fully reflect the injected velocity, so it informs (rather than blocks)
+            // the release: geometric readiness is the hard gate.
+            energyState_ = evaluateEnergyState(telemetry, energyTarget_);
+            emitStatus();
 
             const bool freezeActive =
                 freezeConfirmedOrAssumed_ ||
@@ -275,10 +267,28 @@ void ApproachSpawnManager::tick(const AircraftTelemetry& telemetry) {
                 appendWarningOnce(warning);
             }
 
-            if (readiness.ready) {
+            // Track a continuous dwell once both geometry and energy are in tolerance.
+            const auto now = std::chrono::steady_clock::now();
+            if (readiness.ready && energyState_.withinTolerance) {
+                if (!energyStable_) {
+                    energyStable_ = true;
+                    energyStableSince_ = now;
+                }
+            } else {
+                energyStable_ = false;
+            }
+
+            const bool energyDwellMet =
+                energyStable_ && now - energyStableSince_ >= StabilisationDwell;
+            const bool minTimeFallback =
+                readiness.ready && elapsedSinceState(StabilisationMinimumTime);
+
+            if (energyDwellMet || minTimeFallback) {
                 transition(
                     ApproachSpawnState::ReadyToRelease,
-                    "Aircraft configured. Press release to continue."
+                    energyDwellMet
+                        ? "Aircraft stabilised on energy target. Press release to continue."
+                        : "Aircraft configured. Press release to continue."
                 );
                 return;
             }
@@ -296,16 +306,20 @@ void ApproachSpawnManager::tick(const AircraftTelemetry& telemetry) {
 
         case ApproachSpawnState::ReadyToRelease:
             // TODO: release on meaningful yoke/stick/rudder/throttle input once control-axis SimVars are published.
+            energyState_ = evaluateEnergyState(telemetry, energyTarget_);
             if (releaseRequested_) {
-                releaseController_.start();
+                releaseController_.start(scenario_, energyTarget_);
                 transition(
                     ApproachSpawnState::SmoothRelease,
-                    "Release requested; unfreezing axes smoothly"
+                    "Release requested; handing over smoothly"
                 );
             }
             return;
 
         case ApproachSpawnState::SmoothRelease: {
+            energyState_ = evaluateEnergyState(telemetry, energyTarget_);
+            emitStatus();
+
             std::string error;
             if (!releaseController_.tick(error)) {
                 fail(error);
@@ -368,19 +382,36 @@ void ApproachSpawnManager::transition(
     ApproachSpawnState next,
     const std::string& message
 ) {
-    const ApproachSpawnState actualState = stateMachine_.transitionTo(next, message);
+    stateMachine_.transitionTo(next, message);
     stateStartedAt_ = std::chrono::steady_clock::now();
+    statusMessage_ = message;
+    emitStatus();
+}
 
-    if (statusCallback_) {
-        SpawnStatus status;
-        status.state = actualState;
-        status.message = message;
-        status.airportIdent = scenario_.airportIdent;
-        status.runwayIdent = scenario_.runwayIdent;
-        status.readyToRelease = actualState == ApproachSpawnState::ReadyToRelease;
-        status.warnings = warnings_;
-        statusCallback_(status);
+void ApproachSpawnManager::emitStatus() {
+    if (!statusCallback_) {
+        return;
     }
+
+    SpawnStatus status;
+    status.state = stateMachine_.state();
+    status.message = statusMessage_;
+    status.airportIdent = scenario_.airportIdent;
+    status.runwayIdent = scenario_.runwayIdent;
+    status.readyToRelease = status.state == ApproachSpawnState::ReadyToRelease;
+    status.warnings = warnings_;
+    status.hasEnergyDiagnostics = hasScenario_;
+    status.energyTarget = energyTarget_;
+    status.energyState = energyState_;
+
+    if (stabiliseStartedAt_.time_since_epoch().count() != 0) {
+        status.stabilizationElapsedMs =
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - stabiliseStartedAt_
+            ).count();
+    }
+
+    statusCallback_(status);
 }
 
 void ApproachSpawnManager::fail(const std::string& reason) {

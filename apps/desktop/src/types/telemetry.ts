@@ -16,6 +16,10 @@ export type AircraftTelemetry = {
   latitudeLongitudeFreezeOn?: number;
   altitudeFreezeOn?: number;
   attitudeFreezeOn?: number;
+  trueAirspeedKt?: number;
+  throttlePercent?: number;
+  elevatorTrimPercent?: number;
+  angleOfAttackDeg?: number;
 };
 
 export type LandingAnalysisPayload = {
@@ -178,6 +182,30 @@ export type SpawnLifecycleState =
   | "FLYING"
   | "FAILED";
 
+export type SpawnEnergyTarget = {
+  targetIasKt: number;
+  targetDescentRateFpm: number;
+  targetPitchDeg: number;
+  targetTrimPct: number;
+  targetThrustPct: number;
+  injectTrim: boolean;
+  injectThrust: boolean;
+  holdAutopilot: boolean;
+};
+
+export type SpawnDiagnostics = {
+  stabilizationElapsedMs: number;
+  releaseReady: boolean;
+  withinTolerance: boolean;
+  speedErrorKt: number;
+  vsErrorFpm: number;
+  pitchErrorDeg: number;
+  bankDeg: number;
+  trimError: number;
+  throttleError: number;
+  target: SpawnEnergyTarget;
+};
+
 export type SpawnStatus = {
   type: "spawn.status";
   state: SpawnLifecycleState;
@@ -187,6 +215,7 @@ export type SpawnStatus = {
   airportIdent?: string;
   runwayIdent?: string;
   warnings?: string[];
+  diagnostics?: SpawnDiagnostics;
 };
 
 export type AircraftAdapterCapabilities = {

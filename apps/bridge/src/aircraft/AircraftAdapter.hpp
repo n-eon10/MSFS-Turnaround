@@ -3,6 +3,7 @@
 #include "aircraft/AircraftAdapterCapabilities.hpp"
 #include "msfs_turnaround/aircraft_telemetry.hpp"
 #include "scenario/ApproachScenario.hpp"
+#include "spawn/ApproachEnergyState.hpp"
 
 #include <string>
 #include <vector>
@@ -29,6 +30,9 @@ public:
 
     virtual int getTargetFlapConfig(const ApproachScenario& scenario) const = 0;
     virtual double getTargetApproachSpeed(const ApproachScenario& scenario) const = 0;
+    virtual ApproachEnergyTarget approachEnergyTarget(
+        const ApproachScenario& scenario
+    ) const = 0;
     virtual bool supportsAdvancedConfig() const = 0;
     virtual std::string name() const = 0;
     virtual AircraftAdapterCapabilities capabilities() const = 0;

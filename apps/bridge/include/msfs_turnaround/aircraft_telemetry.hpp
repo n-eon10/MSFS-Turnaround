@@ -26,6 +26,10 @@ struct AircraftTelemetry {
     double latitudeLongitudeFreezeOn;
     double altitudeFreezeOn;
     double attitudeFreezeOn;
+    double trueAirspeedKt;
+    double throttlePercent;
+    double elevatorTrimPercent;
+    double angleOfAttackDeg;
 };
 
 }

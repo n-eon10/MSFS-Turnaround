@@ -1,5 +1,6 @@
 #include "msfs_turnaround/simconnect_client.hpp"
 #include "scenario/ApproachScenario.hpp"
+#include "spawn/ApproachEnergyState.hpp"
 
 #include <algorithm>
 #include <utility>
@@ -12,7 +13,17 @@ namespace msfs_turnaround {
 namespace {
 
 constexpr double RadiansToDegrees = 180.0 / 3.14159265358979323846;
+constexpr double DegreesToRadians = 3.14159265358979323846 / 180.0;
 constexpr double KnotsToFeetPerSecond = 1.6878098571011957;
+constexpr double InitialTeleportPitchDeg = 2.5;
+
+// Rule-of-thumb IAS->TAS: true airspeed rises ~2% per 1000 ft of altitude.
+double indicatedToTrueAirspeedKt(double indicatedKt, double altitudeFt) {
+    if (!std::isfinite(indicatedKt) || !std::isfinite(altitudeFt)) {
+        return indicatedKt;
+    }
+    return indicatedKt * (1.0 + 0.02 * (altitudeFt / 1000.0));
+}
 
 double normalizeDegrees(double degrees) {
     double normalized = std::fmod(degrees, 360.0);
@@ -316,6 +327,34 @@ void SimConnectClient::requestAircraftTelemetry() {
         "bool"
     );
 
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "AIRSPEED TRUE",
+        "knots"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "GENERAL ENG THROTTLE LEVER POSITION:1",
+        "percent"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "ELEVATOR TRIM PCT",
+        "percent over 100"
+    );
+
+    SimConnect_AddToDataDefinition(
+        simConnect_,
+        static_cast<DWORD>(DataDefinitionId::AircraftTelemetry),
+        "INCIDENCE ALPHA",
+        "degrees"
+    );
+
     SimConnect_RequestDataOnSimObject(
         simConnect_,
         static_cast<DWORD>(DataRequestId::AircraftTelemetry),
@@ -380,6 +419,8 @@ void SimConnectClient::close() {
         aircraftIdentityDefinitionRegistered_ = false;
         pauseEventsRegistered_ = false;
         freezeEventsRegistered_ = false;
+        stabilisationEventsRegistered_ = false;
+        autopilotEventsRegistered_ = false;
     }
 }
 
@@ -809,8 +850,119 @@ bool SimConnectClient::registerConfigurationEvents(std::string& error) {
     return true;
 }
 
+bool SimConnectClient::registerStabilisationEvents(std::string& error) {
+    if (stabilisationEventsRegistered_) {
+        return true;
+    }
+
+    HRESULT result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::ElevTrimSet),
+        "AXIS_ELEV_TRIM_SET"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering elevator trim event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::ThrottleSet),
+        "THROTTLE_SET"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering throttle set event", result);
+        return false;
+    }
+
+    stabilisationEventsRegistered_ = true;
+    return true;
+}
+
+bool SimConnectClient::registerAutopilotEvents(std::string& error) {
+    if (autopilotEventsRegistered_) {
+        return true;
+    }
+
+    HRESULT result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::AutopilotOn),
+        "AUTOPILOT_ON"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering autopilot-on event", result);
+        return false;
+    }
+
+    result = SimConnect_MapClientEventToSimEvent(
+        simConnect_,
+        static_cast<DWORD>(ClientEventId::ApApproachHold),
+        "AP_APR_HOLD"
+    );
+    if (FAILED(result)) {
+        error = hresultMessage("Registering approach-hold event", result);
+        return false;
+    }
+
+    autopilotEventsRegistered_ = true;
+    return true;
+}
+
+bool SimConnectClient::setElevatorTrim(double trimFraction, std::string& error) {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        error = "MSFS is not connected";
+        return false;
+    }
+
+    if (!registerStabilisationEvents(error)) {
+        return false;
+    }
+
+    // AXIS_ELEV_TRIM_SET range: -16383 (full nose-down) .. +16383 (full nose-up).
+    const double clamped = std::clamp(trimFraction, -1.0, 1.0);
+    const auto value = static_cast<DWORD>(static_cast<int32_t>(clamped * 16383.0));
+    return transmitClientEvent(ClientEventId::ElevTrimSet, value, error);
+}
+
+bool SimConnectClient::setThrottlePercent(double throttleFraction, std::string& error) {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        error = "MSFS is not connected";
+        return false;
+    }
+
+    if (!registerStabilisationEvents(error)) {
+        return false;
+    }
+
+    // THROTTLE_SET range: 0 .. 16383.
+    const double clamped = std::clamp(throttleFraction, 0.0, 1.0);
+    const auto value = static_cast<DWORD>(std::lround(clamped * 16383.0));
+    return transmitClientEvent(ClientEventId::ThrottleSet, value, error);
+}
+
+bool SimConnectClient::holdApproachAutopilot(std::string& error) {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        error = "MSFS is not connected";
+        return false;
+    }
+
+    if (!registerAutopilotEvents(error)) {
+        return false;
+    }
+
+    if (!transmitClientEvent(ClientEventId::AutopilotOn, 0, error)) {
+        return false;
+    }
+
+    return transmitClientEvent(ClientEventId::ApApproachHold, 0, error);
+}
+
 bool SimConnectClient::setUserAircraftInitialPosition(
     const ApproachScenario& scenario,
+    double pitchDeg,
     std::string& error
 ) {
     if (!registerInitialPositionDefinition(error)) {
@@ -821,7 +973,7 @@ bool SimConnectClient::setUserAircraftInitialPosition(
     position.Latitude = scenario.spawnLatitudeDeg;
     position.Longitude = scenario.spawnLongitudeDeg;
     position.Altitude = scenario.spawnAltitudeFt;
-    position.Pitch = 3.0;
+    position.Pitch = pitchDeg;
     position.Bank = 0.0;
     position.Heading = scenario.spawnHeadingDeg;
     position.OnGround = 0;
@@ -847,6 +999,7 @@ bool SimConnectClient::setUserAircraftInitialPosition(
 
 bool SimConnectClient::setUserAircraftDirectPosition(
     const ApproachScenario& scenario,
+    double pitchDeg,
     std::string& error
 ) {
     if (!registerDirectPositionDefinition(error)) {
@@ -857,7 +1010,7 @@ bool SimConnectClient::setUserAircraftDirectPosition(
     position.latitudeDeg = scenario.spawnLatitudeDeg;
     position.longitudeDeg = scenario.spawnLongitudeDeg;
     position.altitudeFt = scenario.spawnAltitudeFt;
-    position.pitchDeg = 3.0;
+    position.pitchDeg = pitchDeg;
     position.bankDeg = 0.0;
     position.headingDeg = scenario.spawnHeadingDeg;
 
@@ -881,16 +1034,28 @@ bool SimConnectClient::setUserAircraftDirectPosition(
 
 bool SimConnectClient::setUserAircraftBodyVelocity(
     const ApproachScenario& scenario,
+    const ApproachEnergyTarget& target,
     std::string& error
 ) {
     if (!registerBodyVelocityDefinition(error)) {
         return false;
     }
 
+    // Inject the velocity vector for a stabilized descending approach. The body
+    // frame is z=forward, y=up, x=right. The velocity sits below the longitudinal
+    // axis by the angle of attack (nose-up pitch + descent angle), so the resulting
+    // flight path descends at the glidepath rather than flying level out of the nose.
+    const double trueAirspeedFps =
+        indicatedToTrueAirspeedKt(target.targetIasKt, scenario.spawnAltitudeFt) *
+        KnotsToFeetPerSecond;
+    const double angleOfAttackRad =
+        (std::abs(target.targetPitchDeg) + std::abs(scenario.glidepathDeg)) *
+        DegreesToRadians;
+
     SIMCONNECT_DATA_XYZ bodyVelocity {};
     bodyVelocity.x = 0.0;
-    bodyVelocity.y = 0.0;
-    bodyVelocity.z = scenario.spawnAirspeedKt * KnotsToFeetPerSecond;
+    bodyVelocity.y = -trueAirspeedFps * std::sin(angleOfAttackRad);
+    bodyVelocity.z = trueAirspeedFps * std::cos(angleOfAttackRad);
 
     const HRESULT result = SimConnect_SetDataOnSimObject(
         simConnect_,
@@ -946,14 +1111,14 @@ bool SimConnectClient::setUserAircraftPosition(
     }
 
     std::string initialPositionError;
-    if (!setUserAircraftInitialPosition(scenario, initialPositionError)) {
+    if (!setUserAircraftInitialPosition(scenario, InitialTeleportPitchDeg, initialPositionError)) {
         std::cerr
             << "Initial aircraft position warning: "
             << initialPositionError
             << std::endl;
     }
 
-    if (!setUserAircraftDirectPosition(scenario, error)) {
+    if (!setUserAircraftDirectPosition(scenario, InitialTeleportPitchDeg, error)) {
         return false;
     }
 
@@ -978,7 +1143,7 @@ bool SimConnectClient::teleportUserAircraftToInitialPosition(
         return false;
     }
 
-    if (!setUserAircraftInitialPosition(scenario, error)) {
+    if (!setUserAircraftInitialPosition(scenario, InitialTeleportPitchDeg, error)) {
         return false;
     }
 
@@ -995,6 +1160,7 @@ bool SimConnectClient::teleportUserAircraftToInitialPosition(
 
 bool SimConnectClient::stabiliseUserAircraftFlightPath(
     const ApproachScenario& scenario,
+    const ApproachEnergyTarget& target,
     std::string& error
 ) {
     std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
@@ -1003,11 +1169,11 @@ bool SimConnectClient::stabiliseUserAircraftFlightPath(
         return false;
     }
 
-    if (!setUserAircraftDirectPosition(scenario, error)) {
+    if (!setUserAircraftDirectPosition(scenario, target.targetPitchDeg, error)) {
         return false;
     }
 
-    if (!setUserAircraftBodyVelocity(scenario, error)) {
+    if (!setUserAircraftBodyVelocity(scenario, target, error)) {
         return false;
     }
 
@@ -1015,13 +1181,42 @@ bool SimConnectClient::stabiliseUserAircraftFlightPath(
         return false;
     }
 
+    // Guarded actuations — only fire when the active aircraft profile opts in.
+    if (target.injectTrim && !setElevatorTrim(target.targetTrimPct, error)) {
+        return false;
+    }
+
+    if (target.injectThrust && !setThrottlePercent(target.targetThrustPct, error)) {
+        return false;
+    }
+
     std::cout
         << "Requested frozen flight-path stabilisation: ALT_FT=" << scenario.spawnAltitudeFt
         << " HDG_DEG=" << scenario.spawnHeadingDeg
-        << " IAS_KT=" << scenario.spawnAirspeedKt
+        << " IAS_KT=" << target.targetIasKt
+        << " VS_FPM=" << target.targetDescentRateFpm
+        << " PITCH_DEG=" << target.targetPitchDeg
         << std::endl;
 
     return true;
+}
+
+bool SimConnectClient::setApproachVelocity(
+    const ApproachScenario& scenario,
+    const ApproachEnergyTarget& target,
+    std::string& error
+) {
+    std::lock_guard<std::recursive_mutex> lock(simConnectMutex_);
+    if (simConnect_ == nullptr) {
+        error = "MSFS is not connected";
+        return false;
+    }
+
+    if (!setUserAircraftBodyVelocity(scenario, target, error)) {
+        return false;
+    }
+
+    return setUserAircraftBodyRotationVelocity(error);
 }
 
 bool SimConnectClient::setGenericAircraftConfiguration(
@@ -1267,6 +1462,10 @@ void SimConnectClient::handleAircraftTelemetry(const SIMCONNECT_RECV_SIMOBJECT_D
         << " FRZ_LATLON=" << telemetry.latitudeLongitudeFreezeOn
         << " FRZ_ALT=" << telemetry.altitudeFreezeOn
         << " FRZ_ATT=" << telemetry.attitudeFreezeOn
+        << " TAS_KT=" << telemetry.trueAirspeedKt
+        << " THR_PCT=" << telemetry.throttlePercent
+        << " TRIM=" << telemetry.elevatorTrimPercent
+        << " AOA_DEG=" << telemetry.angleOfAttackDeg
         << std::endl;
 }
 

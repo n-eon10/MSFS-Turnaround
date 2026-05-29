@@ -28,6 +28,11 @@ struct SpawnStatus {
     std::string runwayIdent;
     bool readyToRelease = false;
     std::vector<std::string> warnings;
+
+    bool hasEnergyDiagnostics = false;
+    ApproachEnergyTarget energyTarget;
+    ApproachEnergyState energyState;
+    long long stabilizationElapsedMs = 0;
 };
 
 class ApproachSpawnManager {
@@ -56,6 +61,7 @@ public:
 
 private:
     void transition(ApproachSpawnState next, const std::string& message);
+    void emitStatus();
     void fail(const std::string& reason);
     bool totalTimeoutExpired() const;
     bool elapsedSinceState(std::chrono::milliseconds duration) const;
@@ -63,6 +69,7 @@ private:
 
     ScenarioSpawner& scenarioSpawner_;
     SimConnectClient& simconnect_;
+    AircraftAdapter& aircraftAdapter_;
     SpawnFreezeController freezeController_;
     AircraftConfigurator configurator_;
     ReleaseController releaseController_;
@@ -72,6 +79,9 @@ private:
     StatusCallback statusCallback_;
     ApproachSpawnStateMachine stateMachine_;
     ApproachScenario scenario_;
+    ApproachEnergyTarget energyTarget_;
+    ApproachEnergyState energyState_;
+    std::string statusMessage_;
     std::vector<std::string> warnings_;
     bool hasScenario_ = false;
     bool freezeConfirmedOrAssumed_ = false;
@@ -79,12 +89,14 @@ private:
     bool configurationTimedOut_ = false;
     bool physicalConfigCommandSent_ = false;
     bool flightPathCommandSent_ = false;
-    bool airspeedRefreshSent_ = false;
     bool releaseRequested_ = false;
+    bool energyStable_ = false;
     int configAttempts_ = 0;
     std::chrono::steady_clock::time_point spawnStartedAt_ {};
     std::chrono::steady_clock::time_point stateStartedAt_ {};
     std::chrono::steady_clock::time_point lastConfigAttemptAt_ {};
+    std::chrono::steady_clock::time_point stabiliseStartedAt_ {};
+    std::chrono::steady_clock::time_point energyStableSince_ {};
 };
 
 }

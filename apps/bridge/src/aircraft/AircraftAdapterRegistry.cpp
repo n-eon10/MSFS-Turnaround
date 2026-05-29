@@ -1,5 +1,7 @@
 #include "aircraft/AircraftAdapterRegistry.hpp"
 
+#include "spawn/ApproachProfiles.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <iostream>
@@ -93,6 +95,17 @@ int AircraftAdapterRegistry::getTargetFlapConfig(const ApproachScenario& scenari
 double AircraftAdapterRegistry::getTargetApproachSpeed(const ApproachScenario& scenario) const {
     std::lock_guard<std::mutex> lock(mutex_);
     return activeAdapter_->getTargetApproachSpeed(scenario);
+}
+
+ApproachEnergyTarget AircraftAdapterRegistry::approachEnergyTarget(
+    const ApproachScenario& scenario
+) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return selectApproachEnergyTarget(
+        identity_.detectedFamily,
+        identity_.detectedVariant,
+        scenario
+    );
 }
 
 bool AircraftAdapterRegistry::supportsAdvancedConfig() const {

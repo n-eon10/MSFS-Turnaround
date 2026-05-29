@@ -21,9 +21,10 @@ bool AircraftConfigurator::applyPhysicalConfiguration(
 
 bool AircraftConfigurator::applyFlightPathState(
     const ApproachScenario& scenario,
+    const ApproachEnergyTarget& target,
     std::string& error
 ) {
-    return simconnect_.stabiliseUserAircraftFlightPath(scenario, error);
+    return simconnect_.stabiliseUserAircraftFlightPath(scenario, target, error);
 }
 
 bool AircraftConfigurator::isConfigurationComplete(

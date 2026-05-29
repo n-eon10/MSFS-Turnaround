@@ -53,7 +53,11 @@ std::string telemetryToJson(const msfs_turnaround::AircraftTelemetry& telemetry)
             {"gForce", telemetry.gForce},
             {"latitudeLongitudeFreezeOn", telemetry.latitudeLongitudeFreezeOn},
             {"altitudeFreezeOn", telemetry.altitudeFreezeOn},
-            {"attitudeFreezeOn", telemetry.attitudeFreezeOn}
+            {"attitudeFreezeOn", telemetry.attitudeFreezeOn},
+            {"trueAirspeedKt", telemetry.trueAirspeedKt},
+            {"throttlePercent", telemetry.throttlePercent},
+            {"elevatorTrimPercent", telemetry.elevatorTrimPercent},
+            {"angleOfAttackDeg", telemetry.angleOfAttackDeg}
         }}
     };
 
@@ -281,6 +285,30 @@ std::string spawnStatusToJson(const msfs_turnaround::SpawnStatus& status) {
 
     if (!status.runwayIdent.empty()) {
         message["runwayIdent"] = status.runwayIdent;
+    }
+
+    if (status.hasEnergyDiagnostics) {
+        message["diagnostics"] = {
+            {"stabilizationElapsedMs", status.stabilizationElapsedMs},
+            {"releaseReady", status.readyToRelease},
+            {"withinTolerance", status.energyState.withinTolerance},
+            {"speedErrorKt", status.energyState.speedErrorKt},
+            {"vsErrorFpm", status.energyState.vsErrorFpm},
+            {"pitchErrorDeg", status.energyState.pitchErrorDeg},
+            {"bankDeg", status.energyState.bankDeg},
+            {"trimError", status.energyState.trimError},
+            {"throttleError", status.energyState.throttleError},
+            {"target", {
+                {"targetIasKt", status.energyTarget.targetIasKt},
+                {"targetDescentRateFpm", status.energyTarget.targetDescentRateFpm},
+                {"targetPitchDeg", status.energyTarget.targetPitchDeg},
+                {"targetTrimPct", status.energyTarget.targetTrimPct},
+                {"targetThrustPct", status.energyTarget.targetThrustPct},
+                {"injectTrim", status.energyTarget.injectTrim},
+                {"injectThrust", status.energyTarget.injectThrust},
+                {"holdAutopilot", status.energyTarget.holdAutopilot}
+            }}
+        };
     }
 
     return message.dump();
