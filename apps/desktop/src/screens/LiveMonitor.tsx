@@ -13,10 +13,10 @@ function valueClass(value: number | null, warnAt: number, badAt: number): string
 
 function lateralLabel(valueM: number): string {
   if (Math.abs(valueM) < 1) return "ON CENTRELINE";
-                <div className="check done">
-                  <div className="box"></div>
-                  <div className="lbl">No active guidance issues</div>
-                </div>
+  return `${fmt(Math.abs(valueM))} M ${valueM > 0 ? "RIGHT" : "LEFT"}`;
+}
+
+function glidepathLabel(valueFt: number): string {
   if (Math.abs(valueFt) < 1) return "ON PATH";
   return `${fmt(Math.abs(valueFt))} FT ${valueFt > 0 ? "HIGH" : "LOW"}`;
 }
