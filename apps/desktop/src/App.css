@@ -568,6 +568,14 @@ html, body, #root {
   flex: 1;
   width: 100%;
 }
+.nav-rail-sys {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 4px 8px;
+  border-top: 1px solid var(--border);
+  width: 100%;
+}
 .nav-rail-item {
   appearance: none;
   background: transparent;

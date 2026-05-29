@@ -3,22 +3,38 @@ import "./App.css";
 import logoWhite from "./assets/logo-white.png";
 
 import { useSim, type Phase } from "./sim/useSim";
+import { useSettings } from "./hooks/useSettings";
 import { fmt, padHdg } from "./sim/format";
 import { Dashboard } from "./screens/Dashboard";
 import { ApproachSetup } from "./screens/ApproachSetup";
 import { ScenarioSetup } from "./screens/ScenarioSetup";
 import { LiveMonitor } from "./screens/LiveMonitor";
 import { LandingAnalysis } from "./screens/LandingAnalysis";
+import { Tutorial } from "./screens/Tutorial";
+import { Settings } from "./screens/Settings";
 
-export type AppPage = "dashboard" | "setup" | "scenario" | "monitor" | "analysis";
+export type AppPage =
+  | "dashboard"
+  | "setup"
+  | "scenario"
+  | "monitor"
+  | "analysis"
+  | "tutorial"
+  | "settings";
 
-const NAV: Array<{ id: AppPage; label: string; num: string }> = [
+const MAIN_NAV: Array<{ id: AppPage; label: string; num: string }> = [
   { id: "dashboard", label: "Dashboard", num: "01" },
   { id: "setup", label: "Airport Setup", num: "02" },
   { id: "scenario", label: "Scenario Setup", num: "03" },
   { id: "monitor", label: "Live Monitor", num: "04" },
   { id: "analysis", label: "Landing Analysis", num: "05" },
 ];
+
+const SYSTEM_NAV: Array<{ id: AppPage; label: string; num: string }> = [
+  { id: "tutorial", label: "Tutorial", num: "06" },
+  { id: "settings", label: "Settings", num: "07" },
+];
+
 
 const PHASE_LABEL: Record<Phase, string> = {
   preflight: "GROUND / WAITING",
@@ -33,14 +49,14 @@ const PAGE_TITLES: Record<AppPage, { h: string; crumb: string }> = {
   scenario: { h: "Scenario Setup", crumb: "FINAL APPROACH" },
   monitor: { h: "Live Telemetry Monitor", crumb: "LIVE TELEMETRY" },
   analysis: { h: "Landing Analysis", crumb: "TOUCHDOWN DEBRIEF" },
+  tutorial: { h: "Tutorial", crumb: "GETTING STARTED" },
+  settings: { h: "Settings", crumb: "PREFERENCES" },
 };
 
 function utcNow(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(
-    d.getUTCSeconds()
-  )}Z`;
+  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
 }
 
 function bridgeStatusLabel(status: string): string {
@@ -62,12 +78,8 @@ function App() {
   const [navOpen, setNavOpen] = useState(false);
   const autoRoutedReportRef = useRef<unknown>(null);
 
-  const sim = useSim();
-
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", "slate");
-    document.documentElement.setAttribute("data-density", "balanced");
-  }, []);
+  const { settings, setTheme, setDensity, setBridgeUrl, isValidWsUrl } = useSettings();
+  const sim = useSim({ bridgeUrl: settings.bridgeUrl });
 
   useEffect(() => {
     const id = setInterval(() => setClock(utcNow()), 1000);
@@ -86,6 +98,11 @@ function App() {
     return () => clearTimeout(id);
   }, [sim.state.phase, sim.state.report]);
 
+  const navigate = (p: AppPage) => {
+    setPage(p);
+    setNavOpen(false);
+  };
+
   const s = sim.state;
   const pt = PAGE_TITLES[page];
   const bridgeStatus = bridgeStatusLabel(s.bridgeStatus);
@@ -102,6 +119,19 @@ function App() {
         return <LiveMonitor sim={sim} />;
       case "analysis":
         return <LandingAnalysis sim={sim} />;
+      case "tutorial":
+        return <Tutorial onNavigate={navigate} />;
+      case "settings":
+        return (
+          <Settings
+            settings={settings}
+            setTheme={setTheme}
+            setDensity={setDensity}
+            setBridgeUrl={setBridgeUrl}
+            isValidWsUrl={isValidWsUrl}
+            bridgeStatus={s.bridgeStatus}
+          />
+        );
     }
   };
 
@@ -120,7 +150,20 @@ function App() {
           </button>
         </div>
         <div className="nav-rail-items">
-          {NAV.map((n) => (
+          {MAIN_NAV.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              className={`nav-rail-item ${page === n.id ? "active" : ""}`}
+              onClick={() => setPage(n.id)}
+              title={n.label}
+            >
+              {n.num}
+            </button>
+          ))}
+        </div>
+        <div className="nav-rail-sys">
+          {SYSTEM_NAV.map((n) => (
             <button
               key={n.id}
               type="button"
@@ -142,10 +185,7 @@ function App() {
 
       {/* Backdrop — click to close overlay */}
       {navOpen && (
-        <div
-          className="nav-overlay-backdrop"
-          onClick={() => setNavOpen(false)}
-        />
+        <div className="nav-overlay-backdrop" onClick={() => setNavOpen(false)} />
       )}
 
       {/* Slide-in navigation panel */}
@@ -166,12 +206,12 @@ function App() {
         </div>
         <div className="nav">
           <div className="nav-section">PANELS</div>
-          {NAV.map((n) => (
+          {MAIN_NAV.map((n) => (
             <button
               key={n.id}
               type="button"
               className={`nav-item ${page === n.id ? "active" : ""}`}
-              onClick={() => { setPage(n.id); setNavOpen(false); }}
+              onClick={() => navigate(n.id)}
             >
               <span className="num">{n.num}</span>
               <span>{n.label}</span>
@@ -213,19 +253,25 @@ function App() {
             >
               AIRCRAFT
             </div>
-            <div
-              className="mono"
-              style={{ fontSize: 12, color: "var(--fg)", marginTop: 2 }}
-            >
+            <div className="mono" style={{ fontSize: 12, color: "var(--fg)", marginTop: 2 }}>
               {s.aircraft.code ?? "—"}
               {s.aircraft.name && (
-                <span style={{ color: "var(--fg-3)" }}>
-                  {" "}
-                  - {s.aircraft.name}
-                </span>
+                <span style={{ color: "var(--fg-3)" }}> - {s.aircraft.name}</span>
               )}
             </div>
           </div>
+          <div className="nav-section">SYSTEM</div>
+          {SYSTEM_NAV.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              className={`nav-item ${page === n.id ? "active" : ""}`}
+              onClick={() => navigate(n.id)}
+            >
+              <span className="num">{n.num}</span>
+              <span>{n.label}</span>
+            </button>
+          ))}
         </div>
         <div className="sidebar-foot">
           <div className={`conn ${s.connected ? "" : "bad"}`}>

@@ -164,6 +164,7 @@ export type UseSimOptions = {
   stability?: Stability;
   initialPhase?: Phase;
   running?: boolean;
+  bridgeUrl?: string;
 };
 
 const UNKNOWN_AIRCRAFT: AircraftProfile = {
@@ -319,7 +320,7 @@ function flapsLabel(flapsIdx: number | null): string | null {
   return `INDEX ${Math.round(flapsIdx)}`;
 }
 
-export function useSim(_options: UseSimOptions = {}): UseSimResult {
+export function useSim(options: UseSimOptions = {}): UseSimResult {
   const {
     status,
     telemetry,
@@ -346,7 +347,7 @@ export function useSim(_options: UseSimOptions = {}): UseSimResult {
     cancelSpawn,
     lastMessageAt,
     bridgeUrl,
-  } = useBridgeTelemetry();
+  } = useBridgeTelemetry(options.bridgeUrl ?? "ws://localhost:48787");
   const [paused, setPaused] = useState(false);
   const [trajectoryHistory, setTrajectoryHistory] = useState<TrajectoryRecord[]>(
     []

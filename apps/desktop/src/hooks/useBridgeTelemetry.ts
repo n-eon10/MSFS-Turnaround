@@ -15,13 +15,11 @@ import type {
   SpawnFinalResult,
 } from "../types/telemetry";
 
-const BRIDGE_URL = "ws://localhost:48787";
-
 function simBool(value: number | undefined): boolean {
   return typeof value === "number" && Math.abs(value) >= 0.5;
 }
 
-export function useBridgeTelemetry() {
+export function useBridgeTelemetry(bridgeUrl: string) {
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
 
@@ -67,7 +65,7 @@ export function useBridgeTelemetry() {
 
       setStatus("connecting");
 
-      const socket = new WebSocket(BRIDGE_URL);
+      const socket = new WebSocket(bridgeUrl);
       socketRef.current = socket;
       const isCurrentSocket = () => socketRef.current === socket;
 
@@ -249,7 +247,7 @@ export function useBridgeTelemetry() {
         socketRef.current = null;
       }
     };
-  }, []);
+  }, [bridgeUrl]);
 
   const sendBridgeMessage = useCallback((message: object) => {
     const socket = socketRef.current;
@@ -370,6 +368,6 @@ export function useBridgeTelemetry() {
     releaseSpawn,
     cancelSpawn,
     lastMessageAt,
-    bridgeUrl: BRIDGE_URL,
+    bridgeUrl,
   };
 }
