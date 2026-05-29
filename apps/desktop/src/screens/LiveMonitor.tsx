@@ -13,10 +13,10 @@ function valueClass(value: number | null, warnAt: number, badAt: number): string
 
 function lateralLabel(valueM: number): string {
   if (Math.abs(valueM) < 1) return "ON CENTRELINE";
-  return `${fmt(Math.abs(valueM))} M ${valueM > 0 ? "RIGHT" : "LEFT"}`;
-}
-
-function glidepathLabel(valueFt: number): string {
+                <div className="check done">
+                  <div className="box"></div>
+                  <div className="lbl">No active guidance issues</div>
+                </div>
   if (Math.abs(valueFt) < 1) return "ON PATH";
   return `${fmt(Math.abs(valueFt))} FT ${valueFt > 0 ? "HIGH" : "LOW"}`;
 }
@@ -377,9 +377,8 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
               )
             ) : (
               <div className="todo-note">
-                Select a runway and wait for live telemetry to receive approach
-                guidance from the bridge.
-              </div>
+                  Select a runway and wait for live telemetry to receive approach guidance.
+                </div>
             )}
           </div>
         </div>

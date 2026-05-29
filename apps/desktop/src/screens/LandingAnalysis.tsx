@@ -135,7 +135,7 @@ function LandingGateSummary({
             </div>
           </>
         ) : (
-          <div className="todo-note">Gate was not captured for this landing.</div>
+          <div className="todo-note">Gate not captured for this landing.</div>
         )}
       </div>
     </div>
@@ -491,9 +491,8 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
             NO LANDING ANALYSIS FROM BACKEND
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-            The bridge will emit a landing.analysis message when SimConnect
-            reports a transition from airborne to on-ground. This screen no
-            longer fabricates a debrief.
+            The bridge will emit a landing analysis message when SimConnect
+            reports a transition from airborne to on-ground.
           </div>
         </div>
       </div>

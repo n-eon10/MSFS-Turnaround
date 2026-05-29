@@ -90,7 +90,7 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
                 className="mono"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Airport ident, name, or city"
+                placeholder="Airport ID, name, or city"
                 style={{
                   flex: 1,
                   fontSize: 18,
@@ -136,9 +136,9 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
                   />
                 ))}
               </div>
-            ) : (
+              ) : (
               <div className="todo-note">
-                Type a search query and select an airport to load runway ends.
+                Enter a search query, then select an airport to load runways.
               </div>
             )}
           </div>
@@ -169,8 +169,8 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
             ) : (
               <div className="todo-note">
                 {selectedAirport
-                  ? "No runway ends returned for this airport."
-                  : "Select an airport to request runway ends."}
+                  ? "No runways found for this airport."
+                  : "Select an airport to request runways."}
               </div>
             )}
           </div>

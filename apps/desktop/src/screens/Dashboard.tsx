@@ -232,7 +232,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
               <div
                 style={{ color: "var(--fg-3)", fontSize: 12, fontStyle: "italic" }}
               >
-                No landing recorded yet.
+                No landings recorded yet.
               </div>
             )}
           </div>

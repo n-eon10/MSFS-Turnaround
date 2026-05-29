@@ -214,7 +214,7 @@ export function ScenarioSetup({
   const spawnDisabled = disabledReason !== null || spawnActive;
   const spawnSummary = selectedRunway
     ? `${fmt(distanceNm, 1)} NM final, ${fmt(glidepathDeg, 1)} DEG, heading ${padHdg(selectedRunway.headingDegT)}`
-    : "No runway selected; bridge will use the runway nearest the current aircraft position";
+    : "No runway selected — the bridge will automatically select the runway nearest your aircraft.";
   const runwayStatus = selectedRunway
     ? "RUNWAY READY"
     : s.hasTelemetry
@@ -447,11 +447,11 @@ export function ScenarioSetup({
                 <div className="lbl">Preview</div>
                 <div className="todo-note">
                   {selectedRunway
-                    ? `${selectedRunway.airportIdent} ${selectedRunway.runwayIdent} at ${fmt(distanceNm, 1)} NM final, ${fmt(airspeedKt)} KT, flaps ${fmt(flapsIndex)}`
-                    : "Spawn will target the runway nearest the current aircraft position."}
+                      ? `${selectedRunway.airportIdent} ${selectedRunway.runwayIdent} at ${fmt(distanceNm, 1)} NM final, ${fmt(airspeedKt)} KT, flaps ${fmt(flapsIndex)}`
+                      : "The bridge will automatically select the runway nearest your aircraft."}
                 </div>
                 <div className="todo-note" style={{ marginTop: 8 }}>
-                  Spawn freezes, configures, verifies, then waits for release.
+                    Spawn will freeze, configure, verify, then wait for release.
                 </div>
               </div>
               <div className="metric sm" style={{ minWidth: 260 }}>
@@ -486,10 +486,12 @@ export function ScenarioSetup({
                   />
                   <span className="lbl">Gear down</span>
                 </label>
+                {/*
                 <div className="check active">
                   <div className="box"></div>
                   <div className="lbl">Freeze/hold after spawn is automatic</div>
                 </div>
+                */}
               </div>
             </div>
 
@@ -595,7 +597,7 @@ export function ScenarioSetup({
               </>
             ) : (
               <div className="todo-note" style={{ marginBottom: 12 }}>
-                No scenario.status message received yet.
+                No scenario status received yet.
               </div>
             )}
 
@@ -638,7 +640,7 @@ export function ScenarioSetup({
               </div>
             ) : (
               <div className="todo-note">
-                No scenario.spawn_final.result message received yet.
+                No spawn result received yet.
               </div>
             )}
 

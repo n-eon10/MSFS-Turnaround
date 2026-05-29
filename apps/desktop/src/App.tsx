@@ -217,7 +217,7 @@ function App() {
               className="mono"
               style={{ fontSize: 12, color: "var(--fg)", marginTop: 2 }}
             >
-              {s.aircraft.code ?? "TODO"}
+              {s.aircraft.code ?? "—"}
               {s.aircraft.name && (
                 <span style={{ color: "var(--fg-3)" }}>
                   {" "}
