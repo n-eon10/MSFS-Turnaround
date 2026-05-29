@@ -25,6 +25,7 @@ cmake-build-*/
 build-*/
 CMakeFiles/
 CMakeCache.txt
+CMakeUserPresets.json
 *.sln
 *.vcxproj
 *.vcxproj.filters
