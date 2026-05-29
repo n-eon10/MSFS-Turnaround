@@ -43,7 +43,7 @@ function GateSummary({
       <div className="card-body">
         {gate ? (
           <>
-            <div className="grid-4" style={{ gap: 16 }}>
+            <div className="grid-4" style={{ gap: "var(--gap)" }}>
               <div className="metric sm">
                 <div className="lbl">Distance</div>
                 <div className="val">
@@ -119,7 +119,7 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
 
   return (
     <>
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
             <span className="lbl">PRIMARY TELEMETRY</span>
@@ -203,12 +203,12 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
             <span className="lbl">ATTITUDE / LOAD</span>
           </div>
-          <div className="card-body grid-4" style={{ gap: 22 }}>
+          <div className="card-body grid-4" style={{ gap: "var(--gap)" }}>
             <div className="metric">
               <div className="lbl">Heading</div>
               <div className="val">
@@ -254,7 +254,7 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
             <span className="lbl">APPROACH GUIDANCE</span>
@@ -266,7 +266,7 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
               <StatusPill kind="warn">NO GUIDANCE</StatusPill>
             )}
           </div>
-          <div className="card-body grid-4" style={{ gap: 22 }}>
+          <div className="card-body grid-4" style={{ gap: "var(--gap)" }}>
             <div className="metric sm">
               <div className="lbl">Selected runway</div>
               <div className="val">
@@ -385,17 +385,17 @@ export function LiveMonitor({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <GateSummary label="1000 FT STABLE GATE" gate={gate1000} />
         <GateSummary label="500 FT STABLE GATE" gate={gate500} />
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card flex-1">
           <div className="card-head">
             <span className="lbl">CONFIGURATION</span>
           </div>
-          <div className="card-body grid-4" style={{ gap: 22 }}>
+          <div className="card-body grid-4" style={{ gap: "var(--gap)" }}>
             <div className="metric sm">
               <div className="lbl">Flaps</div>
               <div className="val">{s.flapsLabel ?? "—"}</div>

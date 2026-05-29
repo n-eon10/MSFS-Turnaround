@@ -73,7 +73,7 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
 
   return (
     <>
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card flex-1">
           <div className="card-head">
             <span className="lbl">AIRPORT SEARCH</span>
@@ -116,7 +116,7 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
             <span className="lbl">AIRPORTS</span>
@@ -177,7 +177,7 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card flex-1">
           <div className="card-head">
             <span className="lbl">SELECTED RUNWAY</span>
@@ -187,16 +187,16 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
               <StatusPill kind="warn">NONE</StatusPill>
             )}
           </div>
-          <div className="card-body grid-4" style={{ gap: 22 }}>
+          <div className="card-body grid-4" style={{ gap: "var(--gap)" }}>
             <div className="metric">
               <div className="lbl">Airport</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {selectedRunway?.airportIdent ?? "—"}
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Runway</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {selectedRunway?.runwayIdent ?? "—"}
               </div>
               <div className="sub">
@@ -205,31 +205,31 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
             </div>
             <div className="metric">
               <div className="lbl">Heading</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {selectedRunway ? `${padHdg(selectedRunway.headingDegT)} DEG` : "-"}
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Surface</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {selectedRunway?.surface || "-"}
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Length</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {fmt(selectedRunway?.lengthFt)} FT
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Width</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {fmt(selectedRunway?.widthFt)} FT
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Threshold lat/lon</div>
-              <div className="val mono" style={{ fontSize: 18 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-sm)" }}>
                 {selectedRunway
                   ? `${selectedRunway.latitudeDeg.toFixed(5)}, ${selectedRunway.longitudeDeg.toFixed(5)}`
                   : "-"}
@@ -237,7 +237,7 @@ export function ApproachSetup({ sim }: { sim: UseSimResult }) {
             </div>
             <div className="metric">
               <div className="lbl">Threshold elev</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {fmt(selectedRunway?.elevationFt)} FT
               </div>
               <div className="sub">

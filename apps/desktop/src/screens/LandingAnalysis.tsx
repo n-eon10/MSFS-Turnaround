@@ -80,7 +80,7 @@ function LandingGateSummary({
       <div className="card-body">
         {gate?.captured ? (
           <>
-            <div className="grid-4" style={{ gap: 16 }}>
+            <div className="grid-4" style={{ gap: "var(--gap)" }}>
               <div className="metric sm">
                 <div className="lbl">Distance</div>
                 <div className="val">
@@ -508,7 +508,7 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
 
   return (
     <>
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
             <span className="lbl">DEBRIEF</span>
@@ -569,7 +569,7 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card flex-1">
           <div className="card-head">
             <span className="lbl">APPROACH TRACK</span>
@@ -583,7 +583,7 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <LandingGateSummary
           label="1000 FT STABLE GATE"
           gate={r.stableApproach?.gate1000}
@@ -594,12 +594,12 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
         />
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card flex-1">
           <div className="card-head">
             <span className="lbl">TOUCHDOWN</span>
           </div>
-          <div className="card-body grid-4" style={{ gap: 22 }}>
+          <div className="card-body grid-4" style={{ gap: "var(--gap)" }}>
             <div className="metric">
               <div className="lbl">Vertical rate</div>
               <div
@@ -664,13 +664,13 @@ export function LandingAnalysis({ sim }: { sim: UseSimResult }) {
             </div>
             <div className="metric">
               <div className="lbl">Latitude</div>
-              <div className="val" style={{ fontSize: 18 }}>
+              <div className="val" style={{ fontSize: "var(--metric-sm)" }}>
                 {r.touchdownLatitudeDeg.toFixed(5)}
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Longitude</div>
-              <div className="val" style={{ fontSize: 18 }}>
+              <div className="val" style={{ fontSize: "var(--metric-sm)" }}>
                 {r.touchdownLongitudeDeg.toFixed(5)}
               </div>
             </div>

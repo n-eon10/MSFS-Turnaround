@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export type Theme = "slate" | "phosphor" | "paper";
+export type Theme = "slate" | "phosphor" | "paper" | "amber" | "midnight" | "carbon" | "aurora";
 export type Density = "compact" | "balanced" | "comfy";
 
 export const DEFAULT_BRIDGE_URL = "ws://localhost:48787";
@@ -33,7 +33,7 @@ function loadSettings(): AppSettings {
     if (!raw) return { ...DEFAULTS };
     const p = JSON.parse(raw);
     return {
-      theme: (["slate", "phosphor", "paper"] as Theme[]).includes(p.theme)
+      theme: (["slate", "phosphor", "paper", "amber", "midnight", "carbon", "aurora"] as Theme[]).includes(p.theme)
         ? p.theme
         : DEFAULTS.theme,
       density: (["compact", "balanced", "comfy"] as Density[]).includes(p.density)

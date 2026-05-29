@@ -294,7 +294,7 @@ export function ScenarioSetup({
 
   return (
     <>
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card flex-1">
           <div className="card-head">
             <span className="lbl">SCENARIO SETUP</span>
@@ -302,10 +302,10 @@ export function ScenarioSetup({
               {runwayStatus}
             </StatusPill>
           </div>
-          <div className="card-body grid-4" style={{ gap: 22 }}>
+          <div className="card-body grid-4" style={{ gap: "var(--gap)" }}>
             <div className="metric">
               <div className="lbl">Selected runway</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {selectedRunway ? (
                   `${selectedRunway.airportIdent} ${selectedRunway.runwayIdent}`
                 ) : (
@@ -315,7 +315,7 @@ export function ScenarioSetup({
             </div>
             <div className="metric">
               <div className="lbl">Preset</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {selectedPreset?.label ?? "-"}
               </div>
               <div className="sub">
@@ -324,38 +324,38 @@ export function ScenarioSetup({
             </div>
             <div className="metric">
               <div className="lbl">Threshold elev</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {selectedRunway ? `${fmt(selectedRunway.elevationFt)} FT` : "-"}
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Planned altitude</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {plannedAltitude === null ? "-" : `${fmt(plannedAltitude)} FT`}
               </div>
               <div className="sub">MSL on selected glidepath</div>
             </div>
             <div className="metric">
               <div className="lbl">Distance</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {fmt(distanceNm, 1)} NM
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Heading</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {selectedRunway ? `${padHdg(selectedRunway.headingDegT)} DEG` : "-"}
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Airspeed</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {fmt(airspeedKt)} KT
               </div>
             </div>
             <div className="metric">
               <div className="lbl">Configuration</div>
-              <div className="val mono" style={{ fontSize: 22 }}>
+              <div className="val mono" style={{ fontSize: "var(--metric-mid)" }}>
                 {gearDown ? "GEAR DN" : "GEAR UP"}
               </div>
               <div className="sub">Flaps index {fmt(flapsIndex)}</div>
@@ -364,7 +364,7 @@ export function ScenarioSetup({
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card" style={{ flex: 1 }}>
           <div className="card-head">
             <span className="lbl">FINAL APPROACH PRESETS</span>
@@ -391,7 +391,7 @@ export function ScenarioSetup({
               ))}
             </div>
 
-            <div className="grid-4" style={{ gap: 18, marginTop: 18 }}>
+            <div className="grid-4" style={{ gap: "var(--gap)", marginTop: "var(--gap)" }}>
               <label className="metric sm">
                 <span className="lbl">Distance</span>
                 <input
@@ -456,7 +456,7 @@ export function ScenarioSetup({
               </div>
               <div className="metric sm" style={{ minWidth: 260 }}>
                 <div className="lbl">Aircraft / adapter</div>
-                <div className="val mono" style={{ fontSize: 18 }}>
+                <div className="val mono" style={{ fontSize: "var(--metric-sm)" }}>
                   {aircraftAdapter?.identity.title ?? "Unknown"}
                 </div>
                 <div className="sub">

@@ -23,7 +23,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
 
   return (
     <>
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card flex-1">
           <div className="card-head">
             <span className="lbl">FLIGHT STATUS</span>
@@ -34,7 +34,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
             <div className="grid-2">
               <div className="metric">
                 <div className="lbl">Aircraft</div>
-                <div className="val mono" style={{ fontSize: 18 }}>
+                <div className="val mono" style={{ fontSize: "var(--metric-sm)" }}>
                   {s.aircraft.name ?? "—"}
                 </div>
                 <div className="sub">
@@ -43,7 +43,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
               </div>
               <div className="metric">
                 <div className="lbl">Approach Runway</div>
-                <div className="val mono" style={{ fontSize: 18 }}>
+                <div className="val mono" style={{ fontSize: "var(--metric-sm)" }}>
                   {s.runway.airport && s.runway.runway
                     ? `${s.runway.airport}/${s.runway.runway}`
                     : "—"}
@@ -81,7 +81,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card flex-1">
           <div className="card-head">
             <span className="lbl">LIVE TELEMETRY</span>
@@ -89,7 +89,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
               {s.hasTelemetry ? "LIVE" : "NO DATA"}
             </span>
           </div>
-          <div className="card-body grid-4" style={{ gap: 22 }}>
+          <div className="card-body grid-4" style={{ gap: "var(--gap)" }}>
             <div className="metric">
               <div className="lbl">Airspeed</div>
               <div className="val">
@@ -137,14 +137,14 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
               <div className="lbl">Gear</div>
               <div
                 className={`val ${s.gearDown ? "good" : ""}`}
-                style={{ fontSize: 18 }}
+                style={{ fontSize: "var(--metric-sm)" }}
               >
                 {s.gearDown === null ? "—" : s.gearDown ? "DOWN" : "UP"}
               </div>
             </div>
             <div className="metric sm">
               <div className="lbl">Flaps</div>
-              <div className="val" style={{ fontSize: 18 }}>
+              <div className="val" style={{ fontSize: "var(--metric-sm)" }}>
                 {s.flapsLabel ?? "—"}
               </div>
             </div>
@@ -152,7 +152,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
         </div>
       </div>
 
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: "var(--gap)" }}>
         <div className="card flex-1">
           <div className="card-head">
             <span className="lbl">ACTIVE RUNWAY</span>
@@ -166,7 +166,7 @@ export function Dashboard({ sim }: { sim: UseSimResult }) {
                 Use Airport Setup to search and select a runway.
               </div>
             )}
-            <div className="grid-4" style={{ gap: 22 }}>
+            <div className="grid-4" style={{ gap: "var(--gap)" }}>
               <div className="metric">
                 <div className="lbl">Runway</div>
                 <div className="val mono" style={{ fontSize: 16 }}>

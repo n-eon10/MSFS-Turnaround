@@ -12,9 +12,13 @@ type Props = {
 };
 
 const THEMES: Array<{ id: Theme; label: string; desc: string }> = [
-  { id: "slate", label: "Slate", desc: "Dark blue-grey (default)" },
+  { id: "slate",    label: "Slate",    desc: "Dark blue-grey (default)" },
+  { id: "midnight", label: "Midnight", desc: "Deep saturated navy" },
+  { id: "carbon",   label: "Carbon",   desc: "Near-black, warm tones" },
+  { id: "aurora",   label: "Aurora",   desc: "Dark violet / purple" },
   { id: "phosphor", label: "Phosphor", desc: "Green-on-dark, classic CRT" },
-  { id: "paper", label: "Paper", desc: "Light parchment, low-emission" },
+  { id: "amber",    label: "Amber",    desc: "Amber terminal, warm glow" },
+  { id: "paper",    label: "Paper",    desc: "Light parchment, low-emission" },
 ];
 
 const DENSITIES: Array<{ id: Density; label: string; desc: string }> = [
@@ -144,7 +148,7 @@ export function Settings({
         <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div>
             <SectionLabel>Theme</SectionLabel>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
               {THEMES.map((t) => (
                 <OptionButton
                   key={t.id}
