@@ -66,7 +66,6 @@ private:
     bool directPositionDefinitionRegistered_ = false;
     bool bodyVelocityDefinitionRegistered_ = false;
     bool bodyRotationVelocityDefinitionRegistered_ = false;
-    bool elevTrimEventRegistered_ = false;
     bool aircraftConfigurationDefinitionRegistered_ = false;
     bool aircraftIdentityDefinitionRegistered_ = false;
     bool pauseEventsRegistered_ = false;
@@ -104,7 +103,6 @@ private:
         Flaps3 = 113,
         Flaps4 = 114,
         FlapsSet = 115,
-        ElevTrimSet = 116,
     };
 
     bool registerInitialPositionDefinition(std::string& error);
@@ -116,8 +114,6 @@ private:
     bool registerConfigurationEvents(std::string& error);
     bool registerBodyVelocityDefinition(std::string& error);
     bool registerBodyRotationVelocityDefinition(std::string& error);
-    bool registerElevTrimEvent(std::string& error);
-    bool setElevatorTrim(double trimPct, std::string& error);
     bool setUserAircraftInitialPosition(
         const ApproachScenario& scenario,
         std::string& error

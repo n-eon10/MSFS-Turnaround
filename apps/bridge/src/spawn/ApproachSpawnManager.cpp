@@ -297,13 +297,6 @@ void ApproachSpawnManager::tick(const AircraftTelemetry& telemetry) {
         case ApproachSpawnState::ReadyToRelease:
             // TODO: release on meaningful yoke/stick/rudder/throttle input once control-axis SimVars are published.
             if (releaseRequested_) {
-                // Re-assert velocity/trim while all axes are still frozen — body velocity
-                // is only settable with attitude freeze active, so this must happen before
-                // any unfreeze step.
-                std::string velError;
-                if (!simconnect_.stabiliseUserAircraftFlightPath(scenario_, velError)) {
-                    appendWarningOnce(velError);
-                }
                 releaseController_.start();
                 transition(
                     ApproachSpawnState::SmoothRelease,

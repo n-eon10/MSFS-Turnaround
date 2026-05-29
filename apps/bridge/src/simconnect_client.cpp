@@ -622,36 +622,6 @@ bool SimConnectClient::registerBodyRotationVelocityDefinition(std::string& error
     return true;
 }
 
-bool SimConnectClient::registerElevTrimEvent(std::string& error) {
-    if (elevTrimEventRegistered_) {
-        return true;
-    }
-
-    const HRESULT result = SimConnect_MapClientEventToSimEvent(
-        simConnect_,
-        static_cast<DWORD>(ClientEventId::ElevTrimSet),
-        "AXIS_ELEV_TRIM_SET"
-    );
-
-    if (FAILED(result)) {
-        error = hresultMessage("Registering elevator trim event", result);
-        return false;
-    }
-
-    elevTrimEventRegistered_ = true;
-    return true;
-}
-
-bool SimConnectClient::setElevatorTrim(double trimPct, std::string& error) {
-    if (!registerElevTrimEvent(error)) {
-        return false;
-    }
-
-    // AXIS_ELEV_TRIM_SET range: -16383 (full nose-down) to +16383 (full nose-up)
-    const DWORD trimValue = static_cast<DWORD>(static_cast<int32_t>(trimPct * 16383.0));
-    return transmitClientEvent(ClientEventId::ElevTrimSet, trimValue, error);
-}
-
 bool SimConnectClient::registerPauseEvents(std::string& error) {
     if (pauseEventsRegistered_) {
         return true;
@@ -851,7 +821,7 @@ bool SimConnectClient::setUserAircraftInitialPosition(
     position.Latitude = scenario.spawnLatitudeDeg;
     position.Longitude = scenario.spawnLongitudeDeg;
     position.Altitude = scenario.spawnAltitudeFt;
-    position.Pitch = scenario.glidepathDeg;
+    position.Pitch = 3.0;
     position.Bank = 0.0;
     position.Heading = scenario.spawnHeadingDeg;
     position.OnGround = 0;
@@ -887,7 +857,7 @@ bool SimConnectClient::setUserAircraftDirectPosition(
     position.latitudeDeg = scenario.spawnLatitudeDeg;
     position.longitudeDeg = scenario.spawnLongitudeDeg;
     position.altitudeFt = scenario.spawnAltitudeFt;
-    position.pitchDeg = scenario.glidepathDeg;
+    position.pitchDeg = 3.0;
     position.bankDeg = 0.0;
     position.headingDeg = scenario.spawnHeadingDeg;
 
@@ -1042,10 +1012,6 @@ bool SimConnectClient::stabiliseUserAircraftFlightPath(
     }
 
     if (!setUserAircraftBodyRotationVelocity(error)) {
-        return false;
-    }
-
-    if (!setElevatorTrim(0.25, error)) {
         return false;
     }
 
