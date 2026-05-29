@@ -624,17 +624,21 @@ bool SimConnectClient::registerBodyVelocityDefinition(std::string& error) {
         return true;
     }
 
-    const HRESULT result = SimConnect_AddToDataDefinition(
-        simConnect_,
-        static_cast<DWORD>(DataDefinitionId::BodyVelocity),
-        "STRUCT BODY VELOCITY",
-        "feet per second",
-        SIMCONNECT_DATATYPE_XYZ
-    );
-
-    if (FAILED(result)) {
-        error = hresultMessage("Registering body velocity data definition", result);
-        return false;
+    // The "STRUCT BODY VELOCITY" SimVar is not reliably settable (it throws
+    // DATA_ERROR on SetDataOnSimObject); the individual VELOCITY BODY components are.
+    // Order X, Y, Z to match the SIMCONNECT_DATA_XYZ write buffer.
+    const char* const axes[] = {"VELOCITY BODY X", "VELOCITY BODY Y", "VELOCITY BODY Z"};
+    for (const char* axis : axes) {
+        const HRESULT result = SimConnect_AddToDataDefinition(
+            simConnect_,
+            static_cast<DWORD>(DataDefinitionId::BodyVelocity),
+            axis,
+            "feet per second"
+        );
+        if (FAILED(result)) {
+            error = hresultMessage("Registering body velocity data definition", result);
+            return false;
+        }
     }
 
     bodyVelocityDefinitionRegistered_ = true;
@@ -646,17 +650,22 @@ bool SimConnectClient::registerBodyRotationVelocityDefinition(std::string& error
         return true;
     }
 
-    const HRESULT result = SimConnect_AddToDataDefinition(
-        simConnect_,
-        static_cast<DWORD>(DataDefinitionId::BodyRotationVelocity),
-        "STRUCT BODY ROTATION VELOCITY",
-        "radians per second",
-        SIMCONNECT_DATATYPE_XYZ
-    );
-
-    if (FAILED(result)) {
-        error = hresultMessage("Registering body rotation velocity data definition", result);
-        return false;
+    const char* const axes[] = {
+        "ROTATION VELOCITY BODY X",
+        "ROTATION VELOCITY BODY Y",
+        "ROTATION VELOCITY BODY Z"
+    };
+    for (const char* axis : axes) {
+        const HRESULT result = SimConnect_AddToDataDefinition(
+            simConnect_,
+            static_cast<DWORD>(DataDefinitionId::BodyRotationVelocity),
+            axis,
+            "radians per second"
+        );
+        if (FAILED(result)) {
+            error = hresultMessage("Registering body rotation velocity data definition", result);
+            return false;
+        }
     }
 
     bodyRotationVelocityDefinitionRegistered_ = true;

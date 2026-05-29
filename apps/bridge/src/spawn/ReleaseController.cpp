@@ -8,8 +8,8 @@
 namespace msfs_turnaround {
 namespace {
 
-constexpr auto TranslationSettleDelay = std::chrono::milliseconds(450);
-constexpr auto AttitudeReleaseDelay = std::chrono::milliseconds(350);
+constexpr auto TranslationSettleDelay = std::chrono::milliseconds(1000);
+constexpr auto AttitudeReleaseDelay = std::chrono::milliseconds(300);
 
 }
 
@@ -55,27 +55,43 @@ bool ReleaseController::tick(std::string& error) {
     }
 
     if (step_ == Step::SettleTranslation) {
-        if (now - stepStartedAt_ < TranslationSettleDelay) {
-            return true;
-        }
-
-        // Re-assert velocity (vector only — no reposition) as drag begins to act.
+        // Hold the descending flight path steady (vector only — no reposition) on every
+        // tick while attitude stays frozen, so vertical speed has fully settled to the
+        // target before the nose is freed. This removes the descent overshoot.
         std::string velError;
         if (!simconnect_.setApproachVelocity(scenario_, target_, velError)) {
             std::cerr << "[ApproachSpawn] release velocity re-assert warning: " << velError << std::endl;
         }
+
+        if (now - stepStartedAt_ < TranslationSettleDelay) {
+            return true;
+        }
+
         advance(Step::ReleaseAttitude);
         return true;
     }
 
     if (step_ == Step::ReleaseAttitude) {
         if (now - stepStartedAt_ < AttitudeReleaseDelay) {
+            // Keep pinning the vector right up to the handoff.
+            std::string velError;
+            if (!simconnect_.setApproachVelocity(scenario_, target_, velError)) {
+                std::cerr << "[ApproachSpawn] release velocity hold warning: " << velError << std::endl;
+            }
             return true;
         }
 
+        // Final assert of velocity + trim so the aircraft is trimmed for the approach
+        // the instant it becomes stick-free, minimising the post-release pitch hunt.
         std::string velError;
         if (!simconnect_.setApproachVelocity(scenario_, target_, velError)) {
             std::cerr << "[ApproachSpawn] release velocity final assert warning: " << velError << std::endl;
+        }
+        if (target_.injectTrim) {
+            std::string trimError;
+            if (!simconnect_.setElevatorTrim(target_.targetTrimPct, trimError)) {
+                std::cerr << "[ApproachSpawn] release trim assert warning: " << trimError << std::endl;
+            }
         }
         std::cout << "[ApproachSpawn] release step: free attitude (full handoff)" << std::endl;
         if (!freezeController_.unfreezeAll(error)) {

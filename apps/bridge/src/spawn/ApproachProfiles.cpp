@@ -40,11 +40,17 @@ ApproachEnergyTarget makeApproachEnergyTarget(
 ) {
     ApproachEnergyTarget target = baseTarget(scenario);
 
+    // Trim injection is the lever that stops the released aircraft from porpoising
+    // (hunting for its trimmed speed stick-free). targetTrimPct is a fraction matching
+    // the ELEVATOR TRIM PCT SimVar (positive = nose up). These are reasonable
+    // approach-trim starting points; tune per aircraft against the TRIM telemetry.
+    // Thrust and autopilot hold remain off by default.
     switch (profile) {
         case ApproachProfileId::GenericJet:
             target.targetPitchDeg = 2.5;
-            target.targetTrimPct = 0.06;
+            target.targetTrimPct = 0.12;
             target.targetThrustPct = 0.55;
+            target.injectTrim = true;
             target.speedTolKt = 6.0;
             target.vsTolFpm = 250.0;
             target.pitchTolDeg = 3.0;
@@ -53,8 +59,9 @@ ApproachEnergyTarget makeApproachEnergyTarget(
 
         case ApproachProfileId::GenericTurboprop:
             target.targetPitchDeg = 3.0;
-            target.targetTrimPct = 0.08;
+            target.targetTrimPct = 0.14;
             target.targetThrustPct = 0.45;
+            target.injectTrim = true;
             target.speedTolKt = 7.0;
             target.vsTolFpm = 250.0;
             target.pitchTolDeg = 3.5;
@@ -63,8 +70,9 @@ ApproachEnergyTarget makeApproachEnergyTarget(
 
         case ApproachProfileId::GenericGa:
             target.targetPitchDeg = 4.0;
-            target.targetTrimPct = 0.10;
+            target.targetTrimPct = 0.16;
             target.targetThrustPct = 0.40;
+            target.injectTrim = true;
             target.speedTolKt = 8.0;
             target.vsTolFpm = 300.0;
             target.pitchTolDeg = 4.0;
@@ -72,10 +80,23 @@ ApproachEnergyTarget makeApproachEnergyTarget(
             break;
 
         case ApproachProfileId::FenixA320:
-        case ApproachProfileId::FbwA32nx:
             target.targetPitchDeg = 2.5;
-            target.targetTrimPct = 0.05;
+            target.targetTrimPct = 0.10;
             target.targetThrustPct = 0.55;
+            target.injectTrim = true;
+            target.speedTolKt = 5.0;
+            target.vsTolFpm = 200.0;
+            target.pitchTolDeg = 2.5;
+            target.bankTolDeg = 3.0;
+            break;
+
+        case ApproachProfileId::FbwA32nx:
+            // FBW normal law auto-trims; manual trim injection fights it, so leave it
+            // off and rely on velocity + pitch matching.
+            target.targetPitchDeg = 2.5;
+            target.targetTrimPct = 0.0;
+            target.targetThrustPct = 0.55;
+            target.injectTrim = false;
             target.speedTolKt = 5.0;
             target.vsTolFpm = 200.0;
             target.pitchTolDeg = 2.5;
@@ -84,8 +105,9 @@ ApproachEnergyTarget makeApproachEnergyTarget(
 
         case ApproachProfileId::Pmdg737:
             target.targetPitchDeg = 2.0;
-            target.targetTrimPct = 0.05;
+            target.targetTrimPct = 0.10;
             target.targetThrustPct = 0.58;
+            target.injectTrim = true;
             target.speedTolKt = 5.0;
             target.vsTolFpm = 200.0;
             target.pitchTolDeg = 2.5;
